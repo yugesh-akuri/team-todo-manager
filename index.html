@@ -8,62 +8,139 @@
 </head>
 <body>
     <div class="app">
-        <!-- Header -->
-        <header class="header">
-            <div class="container">
-                <div class="header__content">
-                    <h1 class="header__title">Team Todo Manager</h1>
-                    <div class="header__actions">
-                        <button class="btn btn--secondary btn--sm" id="themeToggle">
-                            <span id="themeIcon">🌙</span>
-                        </button>
-                        <button class="btn btn--secondary btn--sm" id="statsButton">
-                            Statistics
-                        </button>
-                        <button class="btn btn--secondary btn--sm" id="teamButton">
-                            Team
-                        </button>
-                        <button class="btn btn--secondary btn--sm" id="settingsButton">
-                            Settings
-                        </button>
+        <!-- Authentication Screen -->
+        <div class="auth-container" id="authContainer">
+            <div class="auth-card">
+                <h1 class="auth-title">Team Todo Manager</h1>
+                <p class="auth-subtitle">Sign in to collaborate with your team</p>
+                
+                <!-- Loading State -->
+                <div class="auth-loading hidden" id="authLoading">
+                    <div class="loading-spinner"></div>
+                    <p>Connecting...</p>
+                </div>
+                
+                <!-- Login Form -->
+                <form class="auth-form" id="loginForm">
+                    <div class="form-group">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" id="loginEmail" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Password</label>
+                        <input type="password" class="form-control" id="loginPassword" required>
+                    </div>
+                    <button type="submit" class="btn btn--primary btn--full-width">Sign In</button>
+                    <div class="auth-error hidden" id="authError"></div>
+                </form>
+                
+                <!-- Sign Up Form -->
+                <form class="auth-form hidden" id="signupForm">
+                    <div class="form-group">
+                        <label class="form-label">Name</label>
+                        <input type="text" class="form-control" id="signupName" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" id="signupEmail" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Password</label>
+                        <input type="password" class="form-control" id="signupPassword" required minlength="6">
+                    </div>
+                    <button type="submit" class="btn btn--primary btn--full-width">Create Account</button>
+                    <div class="auth-error hidden" id="signupError"></div>
+                </form>
+                
+                <div class="auth-toggle">
+                    <p id="authToggleText">Don't have an account? <button type="button" class="auth-link" id="authToggleBtn">Sign up</button></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Application (hidden until authenticated) -->
+        <div class="main-app hidden" id="mainApp">
+            <!-- Header -->
+            <header class="header">
+                <div class="container">
+                    <div class="header__content">
+                        <h1 class="header__title">Team Todo Manager</h1>
+                        <div class="header__user-info">
+                            <div class="user-status">
+                                <div class="online-indicator"></div>
+                                <span id="currentUserName">Loading...</span>
+                            </div>
+                            <div class="team-online" id="teamOnline">
+                                <span>Team: <span id="onlineCount">0</span> online</span>
+                            </div>
+                        </div>
+                        <div class="header__actions">
+                            <button class="btn btn--secondary btn--sm" id="themeToggle">
+                                <span id="themeIcon">🌙</span>
+                            </button>
+                            <button class="btn btn--secondary btn--sm" id="statsButton">
+                                Statistics
+                            </button>
+                            <button class="btn btn--secondary btn--sm" id="teamButton">
+                                Team
+                            </button>
+                            <button class="btn btn--secondary btn--sm" id="settingsButton">
+                                Settings
+                            </button>
+                            <button class="btn btn--outline btn--sm" id="signOutBtn">
+                                Sign Out
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Connection Status -->
+            <div class="connection-status hidden" id="connectionStatus">
+                <div class="container">
+                    <div class="status-bar">
+                        <span id="connectionText">Connecting to Firebase...</span>
                     </div>
                 </div>
             </div>
-        </header>
 
-        <!-- Main Content -->
-        <main class="main">
-            <div class="container">
-                <!-- Search and Filter Bar -->
-                <div class="toolbar">
-                    <div class="toolbar__search">
-                        <input type="text" class="form-control" id="searchInput" placeholder="Search todos...">
+            <!-- Main Content -->
+            <main class="main">
+                <div class="container">
+                    <!-- Search and Filter Bar -->
+                    <div class="toolbar">
+                        <div class="toolbar__search">
+                            <input type="text" class="form-control" id="searchInput" placeholder="Search todos...">
+                        </div>
+                        <div class="toolbar__filters">
+                            <select class="form-control" id="statusFilter">
+                                <option value="">All Statuses</option>
+                                <option value="todo">To Do</option>
+                                <option value="in-progress">In Progress</option>
+                                <option value="completed">Completed</option>
+                            </select>
+                            <select class="form-control" id="memberFilter">
+                                <option value="">All Members</option>
+                            </select>
+                            <select class="form-control" id="sortBy">
+                                <option value="created">Sort by Created</option>
+                                <option value="modified">Sort by Modified</option>
+                                <option value="title">Sort by Title</option>
+                            </select>
+                        </div>
+                        <button class="btn btn--primary" id="addSectionBtn">+ Add Section</button>
                     </div>
-                    <div class="toolbar__filters">
-                        <select class="form-control" id="statusFilter">
-                            <option value="">All Statuses</option>
-                            <option value="todo">To Do</option>
-                            <option value="in-progress">In Progress</option>
-                            <option value="completed">Completed</option>
-                        </select>
-                        <select class="form-control" id="memberFilter">
-                            <option value="">All Members</option>
-                        </select>
-                        <select class="form-control" id="sortBy">
-                            <option value="created">Sort by Created</option>
-                            <option value="modified">Sort by Modified</option>
-                            <option value="title">Sort by Title</option>
-                        </select>
-                    </div>
-                    <button class="btn btn--primary" id="addSectionBtn">+ Add Section</button>
-                </div>
 
-                <!-- Sections Container -->
-                <div class="sections" id="sectionsContainer">
-                    <!-- Sections will be dynamically generated -->
+                    <!-- Sections Container -->
+                    <div class="sections" id="sectionsContainer">
+                        <div class="loading-sections">
+                            <div class="loading-spinner"></div>
+                            <p>Loading your todos...</p>
+                        </div>
+                    </div>
                 </div>
-            </div>
-        </main>
+            </main>
+        </div>
 
         <!-- Team Modal -->
         <div class="modal hidden" id="teamModal">
@@ -106,6 +183,14 @@
                             <button class="btn btn--secondary" id="importBtn">Import Data</button>
                             <input type="file" id="importFile" accept=".json" class="hidden">
                             <button class="btn btn--outline" id="clearDataBtn">Clear All Data</button>
+                        </div>
+                    </div>
+                    <div class="settings-section">
+                        <h4>Firebase Info</h4>
+                        <div class="firebase-info">
+                            <p><strong>User ID:</strong> <span id="userIdDisplay">-</span></p>
+                            <p><strong>Database Status:</strong> <span id="dbStatus">-</span></p>
+                            <p><strong>Last Sync:</strong> <span id="lastSync">-</span></p>
                         </div>
                     </div>
                 </div>
@@ -177,8 +262,17 @@
                 </div>
             </div>
         </div>
+
+        <!-- Real-time Update Notifications -->
+        <div class="notification hidden" id="realtimeNotification">
+            <div class="notification__content">
+                <span id="notificationText">Todo updated by team member</span>
+                <button class="notification__close" id="closeNotification">×</button>
+            </div>
+        </div>
     </div>
 
-    <script src="app.js"></script>
+    <!-- Firebase v9 Modular SDK -->
+    <script type="module" src="app.js"></script>
 </body>
 </html>
