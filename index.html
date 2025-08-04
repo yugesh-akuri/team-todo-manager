@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team Todo Manager</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="container">
+                <div class="header__content">
+                    <h1 class="header__title">Team Todo Manager</h1>
+                    <div class="header__actions">
+                        <button class="btn btn--secondary btn--sm" id="themeToggle">
+                            <span id="themeIcon">🌙</span>
+                        </button>
+                        <button class="btn btn--secondary btn--sm" id="statsButton">
+                            Statistics
+                        </button>
+                        <button class="btn btn--secondary btn--sm" id="teamButton">
+                            Team
+                        </button>
+                        <button class="btn btn--secondary btn--sm" id="settingsButton">
+                            Settings
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main">
+            <div class="container">
+                <!-- Search and Filter Bar -->
+                <div class="toolbar">
+                    <div class="toolbar__search">
+                        <input type="text" class="form-control" id="searchInput" placeholder="Search todos...">
+                    </div>
+                    <div class="toolbar__filters">
+                        <select class="form-control" id="statusFilter">
+                            <option value="">All Statuses</option>
+                            <option value="todo">To Do</option>
+                            <option value="in-progress">In Progress</option>
+                            <option value="completed">Completed</option>
+                        </select>
+                        <select class="form-control" id="memberFilter">
+                            <option value="">All Members</option>
+                        </select>
+                        <select class="form-control" id="sortBy">
+                            <option value="created">Sort by Created</option>
+                            <option value="modified">Sort by Modified</option>
+                            <option value="title">Sort by Title</option>
+                        </select>
+                    </div>
+                    <button class="btn btn--primary" id="addSectionBtn">+ Add Section</button>
+                </div>
+
+                <!-- Sections Container -->
+                <div class="sections" id="sectionsContainer">
+                    <!-- Sections will be dynamically generated -->
+                </div>
+            </div>
+        </main>
+
+        <!-- Team Modal -->
+        <div class="modal hidden" id="teamModal">
+            <div class="modal__overlay"></div>
+            <div class="modal__content">
+                <div class="modal__header">
+                    <h3>Team Members</h3>
+                    <button class="modal__close" id="closeTeamModal">×</button>
+                </div>
+                <div class="modal__body">
+                    <div class="team-form">
+                        <div class="form-group">
+                            <input type="text" class="form-control" id="memberName" placeholder="Name">
+                        </div>
+                        <div class="form-group">
+                            <input type="email" class="form-control" id="memberEmail" placeholder="Email">
+                        </div>
+                        <button class="btn btn--primary" id="addMemberBtn">Add Member</button>
+                    </div>
+                    <div class="team-list" id="teamList">
+                        <!-- Team members will be listed here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Modal -->
+        <div class="modal hidden" id="settingsModal">
+            <div class="modal__overlay"></div>
+            <div class="modal__content">
+                <div class="modal__header">
+                    <h3>Settings</h3>
+                    <button class="modal__close" id="closeSettingsModal">×</button>
+                </div>
+                <div class="modal__body">
+                    <div class="settings-section">
+                        <h4>Data Management</h4>
+                        <div class="settings-actions">
+                            <button class="btn btn--secondary" id="exportBtn">Export Data</button>
+                            <button class="btn btn--secondary" id="importBtn">Import Data</button>
+                            <input type="file" id="importFile" accept=".json" class="hidden">
+                            <button class="btn btn--outline" id="clearDataBtn">Clear All Data</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistics Modal -->
+        <div class="modal hidden" id="statsModal">
+            <div class="modal__overlay"></div>
+            <div class="modal__content">
+                <div class="modal__header">
+                    <h3>Statistics</h3>
+                    <button class="modal__close" id="closeStatsModal">×</button>
+                </div>
+                <div class="modal__body">
+                    <div class="stats-grid" id="statsContent">
+                        <!-- Statistics will be generated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Section Modal -->
+        <div class="modal hidden" id="addSectionModal">
+            <div class="modal__overlay"></div>
+            <div class="modal__content">
+                <div class="modal__header">
+                    <h3>Add New Section</h3>
+                    <button class="modal__close" id="closeAddSectionModal">×</button>
+                </div>
+                <div class="modal__body">
+                    <div class="form-group">
+                        <label class="form-label">Section Name</label>
+                        <input type="text" class="form-control" id="newSectionName" placeholder="Enter section name">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Color</label>
+                        <div class="color-picker">
+                            <div class="color-option" data-color="#4CAF50" style="background: #4CAF50"></div>
+                            <div class="color-option" data-color="#2196F3" style="background: #2196F3"></div>
+                            <div class="color-option" data-color="#FF9800" style="background: #FF9800"></div>
+                            <div class="color-option" data-color="#9C27B0" style="background: #9C27B0"></div>
+                            <div class="color-option" data-color="#E91E63" style="background: #E91E63"></div>
+                            <div class="color-option" data-color="#F44336" style="background: #F44336"></div>
+                        </div>
+                        <input type="hidden" id="selectedColor" value="#4CAF50">
+                    </div>
+                    <div class="modal__actions">
+                        <button class="btn btn--secondary" id="cancelAddSection">Cancel</button>
+                        <button class="btn btn--primary" id="confirmAddSection">Add Section</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Confirm Dialog -->
+        <div class="modal hidden" id="confirmModal">
+            <div class="modal__overlay"></div>
+            <div class="modal__content modal__content--sm">
+                <div class="modal__header">
+                    <h3 id="confirmTitle">Confirm Action</h3>
+                </div>
+                <div class="modal__body">
+                    <p id="confirmMessage">Are you sure?</p>
+                </div>
+                <div class="modal__actions">
+                    <button class="btn btn--secondary" id="confirmCancel">Cancel</button>
+                    <button class="btn btn--primary" id="confirmOk">Confirm</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
