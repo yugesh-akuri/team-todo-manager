@@ -1,278 +1,391 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Team Todo Manager</title>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
-    <div class="app">
-        <!-- Authentication Screen -->
-        <div class="auth-container" id="authContainer">
-            <div class="auth-card">
-                <h1 class="auth-title">Team Todo Manager</h1>
-                <p class="auth-subtitle">Sign in to collaborate with your team</p>
-                
-                <!-- Loading State -->
-                <div class="auth-loading hidden" id="authLoading">
-                    <div class="loading-spinner"></div>
-                    <p>Connecting...</p>
-                </div>
-                
-                <!-- Login Form -->
-                <form class="auth-form" id="loginForm">
-                    <div class="form-group">
-                        <label class="form-label">Email</label>
-                        <input type="email" class="form-control" id="loginEmail" required>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Password</label>
-                        <input type="password" class="form-control" id="loginPassword" required>
-                    </div>
-                    <button type="submit" class="btn btn--primary btn--full-width">Sign In</button>
-                    <div class="auth-error hidden" id="authError"></div>
-                </form>
-                
-                <!-- Sign Up Form -->
-                <form class="auth-form hidden" id="signupForm">
-                    <div class="form-group">
-                        <label class="form-label">Name</label>
-                        <input type="text" class="form-control" id="signupName" required>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Email</label>
-                        <input type="email" class="form-control" id="signupEmail" required>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Password</label>
-                        <input type="password" class="form-control" id="signupPassword" required minlength="6">
-                    </div>
-                    <button type="submit" class="btn btn--primary btn--full-width">Create Account</button>
-                    <div class="auth-error hidden" id="signupError"></div>
-                </form>
-                
-                <div class="auth-toggle">
-                    <p id="authToggleText">Don't have an account? <button type="button" class="auth-link" id="authToggleBtn">Sign up</button></p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Main Application (hidden until authenticated) -->
-        <div class="main-app hidden" id="mainApp">
-            <!-- Header -->
-            <header class="header">
-                <div class="container">
-                    <div class="header__content">
-                        <h1 class="header__title">Team Todo Manager</h1>
-                        <div class="header__user-info">
-                            <div class="user-status">
-                                <div class="online-indicator"></div>
-                                <span id="currentUserName">Loading...</span>
-                            </div>
-                            <div class="team-online" id="teamOnline">
-                                <span>Team: <span id="onlineCount">0</span> online</span>
-                            </div>
-                        </div>
-                        <div class="header__actions">
-                            <button class="btn btn--secondary btn--sm" id="themeToggle">
-                                <span id="themeIcon">🌙</span>
-                            </button>
-                            <button class="btn btn--secondary btn--sm" id="statsButton">
-                                Statistics
-                            </button>
-                            <button class="btn btn--secondary btn--sm" id="teamButton">
-                                Team
-                            </button>
-                            <button class="btn btn--secondary btn--sm" id="settingsButton">
-                                Settings
-                            </button>
-                            <button class="btn btn--outline btn--sm" id="signOutBtn">
-                                Sign Out
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </header>
-
-            <!-- Connection Status -->
-            <div class="connection-status hidden" id="connectionStatus">
-                <div class="container">
-                    <div class="status-bar">
-                        <span id="connectionText">Connecting to Firebase...</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Main Content -->
-            <main class="main">
-                <div class="container">
-                    <!-- Search and Filter Bar -->
-                    <div class="toolbar">
-                        <div class="toolbar__search">
-                            <input type="text" class="form-control" id="searchInput" placeholder="Search todos...">
-                        </div>
-                        <div class="toolbar__filters">
-                            <select class="form-control" id="statusFilter">
-                                <option value="">All Statuses</option>
-                                <option value="todo">To Do</option>
-                                <option value="in-progress">In Progress</option>
-                                <option value="completed">Completed</option>
-                            </select>
-                            <select class="form-control" id="memberFilter">
-                                <option value="">All Members</option>
-                            </select>
-                            <select class="form-control" id="sortBy">
-                                <option value="created">Sort by Created</option>
-                                <option value="modified">Sort by Modified</option>
-                                <option value="title">Sort by Title</option>
-                            </select>
-                        </div>
-                        <button class="btn btn--primary" id="addSectionBtn">+ Add Section</button>
-                    </div>
-
-                    <!-- Sections Container -->
-                    <div class="sections" id="sectionsContainer">
-                        <div class="loading-sections">
-                            <div class="loading-spinner"></div>
-                            <p>Loading your todos...</p>
-                        </div>
-                    </div>
-                </div>
-            </main>
-        </div>
-
-        <!-- Team Modal -->
-        <div class="modal hidden" id="teamModal">
-            <div class="modal__overlay"></div>
-            <div class="modal__content">
-                <div class="modal__header">
-                    <h3>Team Members</h3>
-                    <button class="modal__close" id="closeTeamModal">×</button>
-                </div>
-                <div class="modal__body">
-                    <div class="team-form">
-                        <div class="form-group">
-                            <input type="text" class="form-control" id="memberName" placeholder="Name">
-                        </div>
-                        <div class="form-group">
-                            <input type="email" class="form-control" id="memberEmail" placeholder="Email">
-                        </div>
-                        <button class="btn btn--primary" id="addMemberBtn">Add Member</button>
-                    </div>
-                    <div class="team-list" id="teamList">
-                        <!-- Team members will be listed here -->
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Settings Modal -->
-        <div class="modal hidden" id="settingsModal">
-            <div class="modal__overlay"></div>
-            <div class="modal__content">
-                <div class="modal__header">
-                    <h3>Settings</h3>
-                    <button class="modal__close" id="closeSettingsModal">×</button>
-                </div>
-                <div class="modal__body">
-                    <div class="settings-section">
-                        <h4>Data Management</h4>
-                        <div class="settings-actions">
-                            <button class="btn btn--secondary" id="exportBtn">Export Data</button>
-                            <button class="btn btn--secondary" id="importBtn">Import Data</button>
-                            <input type="file" id="importFile" accept=".json" class="hidden">
-                            <button class="btn btn--outline" id="clearDataBtn">Clear All Data</button>
-                        </div>
-                    </div>
-                    <div class="settings-section">
-                        <h4>Firebase Info</h4>
-                        <div class="firebase-info">
-                            <p><strong>User ID:</strong> <span id="userIdDisplay">-</span></p>
-                            <p><strong>Database Status:</strong> <span id="dbStatus">-</span></p>
-                            <p><strong>Last Sync:</strong> <span id="lastSync">-</span></p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Statistics Modal -->
-        <div class="modal hidden" id="statsModal">
-            <div class="modal__overlay"></div>
-            <div class="modal__content">
-                <div class="modal__header">
-                    <h3>Statistics</h3>
-                    <button class="modal__close" id="closeStatsModal">×</button>
-                </div>
-                <div class="modal__body">
-                    <div class="stats-grid" id="statsContent">
-                        <!-- Statistics will be generated here -->
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Add Section Modal -->
-        <div class="modal hidden" id="addSectionModal">
-            <div class="modal__overlay"></div>
-            <div class="modal__content">
-                <div class="modal__header">
-                    <h3>Add New Section</h3>
-                    <button class="modal__close" id="closeAddSectionModal">×</button>
-                </div>
-                <div class="modal__body">
-                    <div class="form-group">
-                        <label class="form-label">Section Name</label>
-                        <input type="text" class="form-control" id="newSectionName" placeholder="Enter section name">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Color</label>
-                        <div class="color-picker">
-                            <div class="color-option" data-color="#4CAF50" style="background: #4CAF50"></div>
-                            <div class="color-option" data-color="#2196F3" style="background: #2196F3"></div>
-                            <div class="color-option" data-color="#FF9800" style="background: #FF9800"></div>
-                            <div class="color-option" data-color="#9C27B0" style="background: #9C27B0"></div>
-                            <div class="color-option" data-color="#E91E63" style="background: #E91E63"></div>
-                            <div class="color-option" data-color="#F44336" style="background: #F44336"></div>
-                        </div>
-                        <input type="hidden" id="selectedColor" value="#4CAF50">
-                    </div>
-                    <div class="modal__actions">
-                        <button class="btn btn--secondary" id="cancelAddSection">Cancel</button>
-                        <button class="btn btn--primary" id="confirmAddSection">Add Section</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Confirm Dialog -->
-        <div class="modal hidden" id="confirmModal">
-            <div class="modal__overlay"></div>
-            <div class="modal__content modal__content--sm">
-                <div class="modal__header">
-                    <h3 id="confirmTitle">Confirm Action</h3>
-                </div>
-                <div class="modal__body">
-                    <p id="confirmMessage">Are you sure?</p>
-                </div>
-                <div class="modal__actions">
-                    <button class="btn btn--secondary" id="confirmCancel">Cancel</button>
-                    <button class="btn btn--primary" id="confirmOk">Confirm</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Real-time Update Notifications -->
-        <div class="notification hidden" id="realtimeNotification">
-            <div class="notification__content">
-                <span id="notificationText">Todo updated by team member</span>
-                <button class="notification__close" id="closeNotification">×</button>
-            </div>
-        </div>
+    <link rel="stylesheet" href="style.css" />
+    <!-- Firebase compat SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  </head>
+  <body>
+    <!-- Connection Status Bar -->
+    <div id="connection-status" class="connection-status hidden">
+      <span id="connection-message"></span>
     </div>
 
-    <!-- Firebase v9 Modular SDK -->
-    <script type="module" src="app.js"></script>
-</body>
+    <!-- Main App Container -->
+    <div id="app" class="app">
+      <!-- Header -->
+      <header class="header">
+        <div class="header-content">
+          <h1 class="app-title">Team Todo Manager</h1>
+          <div class="header-actions">
+            <button
+              id="statistics-btn"
+              class="btn btn--outline btn--sm"
+              title="Statistics"
+            >
+              <span>📊</span>
+            </button>
+            <button id="team-btn" class="btn btn--outline btn--sm" title="Team">
+              <span>👥</span>
+            </button>
+            <button
+              id="settings-btn"
+              class="btn btn--outline btn--sm"
+              title="Settings"
+            >
+              <span>⚙️</span>
+            </button>
+            <button
+              id="theme-toggle"
+              class="btn btn--outline btn--sm"
+              title="Toggle Theme"
+            >
+              <span id="theme-icon">🌙</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <!-- Main Content -->
+      <main class="main-content">
+        <div class="container">
+          <!-- Section Controls -->
+          <div class="section-controls">
+            <button id="add-section-btn" class="btn btn--primary">
+              + Add Section
+            </button>
+            <div class="section-filters">
+              <select id="status-filter" class="form-control">
+                <option value="">All Status</option>
+                <option value="todo">To Do</option>
+                <option value="in-progress">In Progress</option>
+                <option value="completed">Completed</option>
+              </select>
+              <select id="assignee-filter" class="form-control">
+                <option value="">All Assignees</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Sections Container -->
+          <div id="sections-container" class="sections-container">
+            <!-- Dynamic sections will be inserted here -->
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- Add/Edit Section Modal -->
+    <div id="section-modal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="section-modal-title">Add Section</h3>
+          <button id="close-section-modal" class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="section-form">
+            <div class="form-group">
+              <label for="section-name" class="form-label">Section Name</label>
+              <input
+                type="text"
+                id="section-name"
+                name="name"
+                class="form-control"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label for="section-color" class="form-label">Color</label>
+              <div class="color-picker">
+                <input
+                  type="color"
+                  id="section-color"
+                  name="color"
+                  class="color-input"
+                  value="#4CAF50"
+                />
+                <div class="color-presets">
+                  <button
+                    type="button"
+                    class="color-preset"
+                    data-color="#4CAF50"
+                    style="background: #4caf50"
+                  ></button>
+                  <button
+                    type="button"
+                    class="color-preset"
+                    data-color="#2196F3"
+                    style="background: #2196f3"
+                  ></button>
+                  <button
+                    type="button"
+                    class="color-preset"
+                    data-color="#FF9800"
+                    style="background: #ff9800"
+                  ></button>
+                  <button
+                    type="button"
+                    class="color-preset"
+                    data-color="#9C27B0"
+                    style="background: #9c27b0"
+                  ></button>
+                  <button
+                    type="button"
+                    class="color-preset"
+                    data-color="#E91E63"
+                    style="background: #e91e63"
+                  ></button>
+                  <button
+                    type="button"
+                    class="color-preset"
+                    data-color="#F44336"
+                    style="background: #f44336"
+                  ></button>
+                </div>
+              </div>
+            </div>
+            <div class="modal-actions">
+              <button
+                type="button"
+                id="cancel-section"
+                class="btn btn--outline"
+              >
+                Cancel
+              </button>
+              <button type="submit" class="btn btn--primary">
+                <span id="section-submit-text">Add Section</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add/Edit Todo Modal -->
+    <div id="todo-modal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="todo-modal-title">Add Todo</h3>
+          <button id="close-todo-modal" class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="todo-form">
+            <div class="form-group">
+              <label for="todo-title" class="form-label">Title</label>
+              <input
+                type="text"
+                id="todo-title"
+                name="title"
+                class="form-control"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label for="todo-description" class="form-label"
+                >Description</label
+              >
+              <textarea
+                id="todo-description"
+                name="description"
+                class="form-control"
+                rows="3"
+              ></textarea>
+            </div>
+            <div class="form-group">
+              <label for="todo-section" class="form-label">Section</label>
+              <select
+                id="todo-section"
+                name="sectionId"
+                class="form-control"
+                required
+              >
+                <!-- Dynamic options will be inserted here -->
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="todo-status" class="form-label">Status</label>
+              <select
+                id="todo-status"
+                name="status"
+                class="form-control"
+                required
+              >
+                <option value="todo">To Do</option>
+                <option value="in-progress">In Progress</option>
+                <option value="completed">Completed</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="todo-assignee" class="form-label">Assigned To</label>
+              <select id="todo-assignee" name="assignedTo" class="form-control">
+                <option value="">Unassigned</option>
+                <!-- Dynamic options will be inserted here -->
+              </select>
+            </div>
+            <div class="modal-actions">
+              <button type="button" id="cancel-todo" class="btn btn--outline">
+                Cancel
+              </button>
+              <button type="submit" class="btn btn--primary">
+                <span id="todo-submit-text">Add Todo</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Team Modal -->
+    <div id="team-modal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Team Members</h3>
+          <button id="close-team-modal" class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="team-actions">
+            <button id="add-member-btn" class="btn btn--primary btn--sm">
+              + Add Member
+            </button>
+          </div>
+          <div id="team-list" class="team-list">
+            <!-- Dynamic team members will be inserted here -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add Member Modal -->
+    <div id="add-member-modal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Add Team Member</h3>
+          <button id="close-add-member-modal" class="modal-close">
+            &times;
+          </button>
+        </div>
+        <div class="modal-body">
+          <form id="add-member-form">
+            <div class="form-group">
+              <label for="member-name" class="form-label">Name</label>
+              <input
+                type="text"
+                id="member-name"
+                name="name"
+                class="form-control"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label for="member-email" class="form-label">Email</label>
+              <input
+                type="email"
+                id="member-email"
+                name="email"
+                class="form-control"
+                required
+              />
+            </div>
+            <div class="modal-actions">
+              <button type="button" id="cancel-member" class="btn btn--outline">
+                Cancel
+              </button>
+              <button type="submit" class="btn btn--primary">Add Member</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Statistics Modal -->
+    <div id="statistics-modal" class="modal hidden">
+      <div class="modal-content modal-content--large">
+        <div class="modal-header">
+          <h3>Statistics</h3>
+          <button id="close-statistics-modal" class="modal-close">
+            &times;
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="stats-overview">
+            <div class="stat-card">
+              <h4>Total Todos</h4>
+              <p id="total-todos">0</p>
+            </div>
+            <div class="stat-card">
+              <h4>Completed</h4>
+              <p id="completed-todos">0</p>
+            </div>
+            <div class="stat-card">
+              <h4>In Progress</h4>
+              <p id="inprogress-todos">0</p>
+            </div>
+            <div class="stat-card">
+              <h4>To Do</h4>
+              <p id="todo-todos">0</p>
+            </div>
+          </div>
+          <div
+            class="chart-container"
+            style="position: relative; height: 400px"
+          >
+            <canvas id="stats-chart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Settings</h3>
+          <button id="close-settings-modal" class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="setting-group">
+            <h4>Theme</h4>
+            <div class="theme-options">
+              <label class="radio-label">
+                <input type="radio" name="theme" value="light" />
+                <span>Light</span>
+              </label>
+              <label class="radio-label">
+                <input type="radio" name="theme" value="dark" />
+                <span>Dark</span>
+              </label>
+              <label class="radio-label">
+                <input type="radio" name="theme" value="auto" checked />
+                <span>Auto</span>
+              </label>
+            </div>
+          </div>
+          <div class="setting-group">
+            <h4>Firebase Connection</h4>
+            <div class="connection-info">
+              <p id="firebase-status">Checking connection...</p>
+              <button id="test-connection-btn" class="btn btn--outline btn--sm">
+                Test Connection
+              </button>
+            </div>
+          </div>
+          <div class="setting-group">
+            <h4>Data Export</h4>
+            <button id="export-data-btn" class="btn btn--secondary btn--sm">
+              Export All Data
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- App Script -->
+    <script src="app.js"></script>
+  </body>
 </html>
