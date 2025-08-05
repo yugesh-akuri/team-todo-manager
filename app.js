@@ -1,30 +1,3 @@
-// Firebase v9 Modular SDK Imports
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
-import {
-  getAuth,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-} from "https://www.gstatic.com/firebasejs/9.22.1/firebase-auth.js";
-import {
-  getFirestore,
-  collection,
-  doc,
-  setDoc,
-  getDoc,
-  getDocs,
-  updateDoc,
-  deleteDoc,
-  onSnapshot,
-  query,
-  orderBy,
-  where,
-  serverTimestamp,
-  enableNetwork,
-  disableNetwork,
-} from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
-
 // Firebase Configuration
 const firebaseConfig = {
   apiKey: "AIzaSyCU_gj_SKAzLGu498JMxRbZZJiuYjvmkZs",
@@ -36,43 +9,26 @@ const firebaseConfig = {
   measurementId: "G-SXE5QMQPP8",
 };
 
-// Check if Firebase config is properly set
-const isFirebaseConfigured =
-  firebaseConfig.apiKey !== "AIzaSyCU_gj_SKAzLGu498JMxRbZZJiuYjvmkZs";
-
-// Initialize Firebase (only if configured)
-let app, auth, db;
-let isUsingMockData = false;
-
-if (isFirebaseConfigured) {
-  try {
-    app = initializeApp(firebaseConfig);
-    auth = getAuth(app);
-    db = getFirestore(app);
-    console.log("Firebase initialized successfully");
-  } catch (error) {
-    console.error("Firebase initialization error:", error);
-    isUsingMockData = true;
-  }
-} else {
-  console.log("Firebase not configured - using demo mode with mock data");
-  isUsingMockData = true;
+// Initialize Firebase
+let app, db;
+try {
+  app = firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+  console.log("Firebase initialized successfully");
+} catch (error) {
+  console.error("Firebase initialization failed:", error);
 }
 
-// Application State
-let appState = {
-  currentUser: null,
-  sections: [],
-  todos: [],
-  teamMembers: [],
-  settings: { theme: "light" },
-  isOnline: navigator.onLine,
-  unsubscribers: [],
-  lastSync: null,
-  isAuthenticated: false,
-};
+// Global State
+let currentSections = [];
+let currentTodos = [];
+let currentTeamMembers = [];
+let isFirebaseConnected = false;
+let editingSection = null;
+let editingTodo = null;
+let statisticsChart = null;
 
-// Default sections data
+// Default Data
 const defaultSections = [
   { id: "finance", name: "Finance", color: "#4CAF50", isDefault: true },
   { id: "it", name: "IT", color: "#2196F3", isDefault: true },
@@ -81,1317 +37,1224 @@ const defaultSections = [
   { id: "designing", name: "Designing", color: "#E91E63", isDefault: true },
 ];
 
-// Mock data for demo mode
-const mockData = {
-  sections: [...defaultSections],
-  todos: [
-    {
-      id: "todo1",
-      title: "Review Q4 Budget",
-      description: "Analyze quarterly expenses and prepare budget report",
-      sectionId: "finance",
-      status: "todo",
-      assignedTo: "john@example.com",
-      createdAt: new Date("2024-01-15T10:00:00Z"),
-      modifiedAt: new Date("2024-01-15T10:00:00Z"),
-      createdBy: "demo-user",
-    },
-    {
-      id: "todo2",
-      title: "Server Maintenance",
-      description: "Schedule monthly server updates and security patches",
-      sectionId: "it",
-      status: "in-progress",
-      assignedTo: "sarah@example.com",
-      createdAt: new Date("2024-01-14T14:30:00Z"),
-      modifiedAt: new Date("2024-01-16T09:15:00Z"),
-      createdBy: "demo-user",
-    },
-    {
-      id: "todo3",
-      title: "Team Performance Review",
-      description: "Conduct quarterly performance evaluations",
-      sectionId: "management",
-      status: "completed",
-      assignedTo: "mike@example.com",
-      createdAt: new Date("2024-01-10T11:00:00Z"),
-      modifiedAt: new Date("2024-01-18T16:45:00Z"),
-      createdBy: "demo-user",
-    },
-  ],
-  teamMembers: [
-    {
-      id: "1",
-      uid: "demo-user",
-      name: "Demo User",
-      email: "demo@example.com",
-      online: true,
-    },
-    {
-      id: "2",
-      uid: "user2",
-      name: "John Doe",
-      email: "john@example.com",
-      online: true,
-    },
-    {
-      id: "3",
-      uid: "user3",
-      name: "Sarah Smith",
-      email: "sarah@example.com",
-      online: false,
-    },
-    {
-      id: "4",
-      uid: "user4",
-      name: "Mike Johnson",
-      email: "mike@example.com",
-      online: true,
-    },
-  ],
-};
+const sampleTodos = [
+  {
+    id: "todo1",
+    title: "Review Q4 Budget",
+    description: "Analyze quarterly expenses and prepare budget report",
+    sectionId: "finance",
+    status: "todo",
+    assignedTo: "john@example.com",
+    createdAt: new Date("2024-01-15T10:00:00Z"),
+    modifiedAt: new Date("2024-01-15T10:00:00Z"),
+    createdBy: "system",
+  },
+  {
+    id: "todo2",
+    title: "Server Maintenance",
+    description: "Schedule monthly server updates and security patches",
+    sectionId: "it",
+    status: "in-progress",
+    assignedTo: "sarah@example.com",
+    createdAt: new Date("2024-01-14T14:30:00Z"),
+    modifiedAt: new Date("2024-01-16T09:15:00Z"),
+    createdBy: "system",
+  },
+  {
+    id: "todo3",
+    title: "Team Performance Review",
+    description: "Conduct quarterly performance evaluations",
+    sectionId: "management",
+    status: "completed",
+    assignedTo: "mike@example.com",
+    createdAt: new Date("2024-01-10T11:00:00Z"),
+    modifiedAt: new Date("2024-01-18T16:45:00Z"),
+    createdBy: "system",
+  },
+];
 
-const statusOptions = [
-  { value: "todo", label: "To Do", color: "#f44336" },
-  { value: "in-progress", label: "In Progress", color: "#ff9800" },
-  { value: "completed", label: "Completed", color: "#4caf50" },
+const sampleTeamMembers = [
+  { id: "1", name: "John Doe", email: "john@example.com", online: true },
+  { id: "2", name: "Sarah Smith", email: "sarah@example.com", online: false },
+  { id: "3", name: "Mike Johnson", email: "mike@example.com", online: true },
 ];
 
 // Utility Functions
 function generateId() {
-  return "id_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
+  return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
 
-function formatDate(timestamp) {
-  if (!timestamp) return "Unknown";
-  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-  return (
-    date.toLocaleDateString() +
-    " " +
-    date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-  );
+function formatDate(date) {
+  return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
 }
 
-function showNotification(message, type = "info") {
-  const notification = document.getElementById("realtimeNotification");
-  const text = document.getElementById("notificationText");
+function getInitials(name) {
+  return name
+    .split(" ")
+    .map((word) => word[0])
+    .join("")
+    .toUpperCase();
+}
 
-  if (notification && text) {
-    text.textContent = message;
-    notification.classList.remove("hidden");
+// Firebase Connection Test
+async function checkFirebaseConnection() {
+  const statusBar = document.getElementById("connection-status");
+  const statusMessage = document.getElementById("connection-message");
 
-    // Auto hide after 3 seconds
+  if (!statusBar || !statusMessage) {
+    console.error("Status elements not found");
+    return false;
+  }
+
+  try {
+    if (!db) {
+      throw new Error("Firestore not initialized");
+    }
+
+    // Test connection by trying to read from Firestore
+    await db.collection("sections").limit(1).get();
+
+    // Connection successful
+    isFirebaseConnected = true;
+    statusMessage.textContent = "🟢 Connected to Firebase successfully!";
+    statusBar.className = "connection-status success";
+    statusBar.classList.remove("hidden");
+
+    console.log("Firebase connection successful");
+
+    // Auto-hide success message after 5 seconds
     setTimeout(() => {
-      notification.classList.add("hidden");
-    }, 3000);
-  }
-}
+      statusBar.classList.add("hidden");
+    }, 5000);
 
-function updateConnectionStatus(status, message) {
-  const statusEl = document.getElementById("connectionStatus");
-  const textEl = document.getElementById("connectionText");
-
-  if (statusEl && textEl) {
-    textEl.textContent = message;
-    statusEl.className = `connection-status ${status}`;
-
-    if (status === "hidden") {
-      statusEl.classList.add("hidden");
-    } else {
-      statusEl.classList.remove("hidden");
-    }
-  }
-}
-
-// Mock Firebase Service (for demo mode)
-class MockFirebaseService {
-  static async signUp(email, password, name) {
-    // Simulate network delay
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    if (email === "error@test.com") {
-      throw new Error("Demo error: Email already in use");
-    }
-
-    const user = {
-      uid: generateId(),
-      email: email,
-      displayName: name,
-    };
-
-    return user;
-  }
-
-  static async signIn(email, password) {
-    // Simulate network delay
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    if (password === "wrong") {
-      throw new Error("Demo error: Incorrect password");
-    }
-
-    const user = {
-      uid: "demo-user",
-      email: email,
-    };
-
-    return user;
-  }
-
-  static async signOut() {
-    await new Promise((resolve) => setTimeout(resolve, 500));
     return true;
-  }
+  } catch (error) {
+    console.error("Firebase connection failed:", error);
 
-  static async createTodo(todoData) {
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    appState.todos.push({
-      ...todoData,
-      createdAt: new Date(),
-      modifiedAt: new Date(),
-    });
-    renderSections();
-    return todoData.id;
-  }
+    // Connection failed
+    isFirebaseConnected = false;
+    statusMessage.textContent =
+      "🔴 Unable to connect to Firebase - Using offline mode";
+    statusBar.className = "connection-status error";
+    statusBar.classList.remove("hidden");
 
-  static async updateTodo(todoId, updates) {
-    await new Promise((resolve) => setTimeout(resolve, 200));
-    const todoIndex = appState.todos.findIndex((t) => t.id === todoId);
-    if (todoIndex !== -1) {
-      appState.todos[todoIndex] = {
-        ...appState.todos[todoIndex],
-        ...updates,
-        modifiedAt: new Date(),
-      };
-      renderSections();
-    }
-  }
-
-  static async deleteTodo(todoId) {
-    await new Promise((resolve) => setTimeout(resolve, 200));
-    appState.todos = appState.todos.filter((t) => t.id !== todoId);
-    renderSections();
-  }
-
-  static async createSection(sectionData) {
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    appState.sections.push({
-      ...sectionData,
-      createdAt: new Date(),
-    });
-    renderSections();
-    return sectionData.id;
-  }
-
-  static async deleteSection(sectionId) {
-    await new Promise((resolve) => setTimeout(resolve, 200));
-    appState.sections = appState.sections.filter((s) => s.id !== sectionId);
-    renderSections();
-  }
-
-  static getUserName(userId) {
-    const user = appState.teamMembers.find((u) => u.uid === userId);
-    return user ? user.name : "Team member";
+    return false;
   }
 }
 
-// Firebase Service Functions
-class FirebaseService {
-  // Authentication Methods
-  static async signUp(email, password, name) {
-    try {
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        email,
-        password
-      );
-      const user = userCredential.user;
-
-      // Create user document in Firestore
-      await setDoc(doc(db, "users", user.uid), {
-        uid: user.uid,
-        name: name,
-        email: email,
-        online: true,
-        lastSeen: serverTimestamp(),
-        createdAt: serverTimestamp(),
+// Data Loading Functions
+async function loadSections() {
+  try {
+    if (isFirebaseConnected && db) {
+      const snapshot = await db.collection("sections").get();
+      const sections = [];
+      snapshot.forEach((doc) => {
+        sections.push({ id: doc.id, ...doc.data() });
       });
 
-      return user;
-    } catch (error) {
-      throw new Error(this.getAuthErrorMessage(error.code));
-    }
-  }
-
-  static async signIn(email, password) {
-    try {
-      const userCredential = await signInWithEmailAndPassword(
-        auth,
-        email,
-        password
-      );
-      return userCredential.user;
-    } catch (error) {
-      throw new Error(this.getAuthErrorMessage(error.code));
-    }
-  }
-
-  static async signOut() {
-    try {
-      if (appState.currentUser) {
-        await updateDoc(doc(db, "users", appState.currentUser.uid), {
-          online: false,
-          lastSeen: serverTimestamp(),
-        });
+      if (sections.length === 0) {
+        // Initialize with default sections
+        await initializeDefaultSections();
+        return [...defaultSections];
       }
-      await signOut(auth);
-    } catch (error) {
-      console.error("Sign out error:", error);
-    }
-  }
 
-  static getAuthErrorMessage(errorCode) {
-    switch (errorCode) {
-      case "auth/user-not-found":
-        return "No account found with this email address.";
-      case "auth/wrong-password":
-        return "Incorrect password.";
-      case "auth/email-already-in-use":
-        return "An account with this email already exists.";
-      case "auth/weak-password":
-        return "Password should be at least 6 characters.";
-      case "auth/invalid-email":
-        return "Invalid email address.";
-      default:
-        return "An error occurred. Please try again.";
-    }
-  }
-
-  static getUserName(userId) {
-    const user = appState.teamMembers.find((u) => u.uid === userId);
-    return user ? user.name : "Team member";
-  }
-}
-
-// Choose the appropriate service based on configuration
-const ServiceAPI = isUsingMockData ? MockFirebaseService : FirebaseService;
-
-// Theme Management
-function initTheme() {
-  const savedTheme = localStorage.getItem("theme") || "light";
-  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-  const theme = savedTheme || (prefersDark ? "dark" : "light");
-
-  document.documentElement.setAttribute("data-color-scheme", theme);
-  appState.settings.theme = theme;
-  updateThemeIcon(theme);
-}
-
-function toggleTheme() {
-  const currentTheme = appState.settings.theme;
-  const newTheme = currentTheme === "light" ? "dark" : "light";
-
-  document.documentElement.setAttribute("data-color-scheme", newTheme);
-  appState.settings.theme = newTheme;
-  updateThemeIcon(newTheme);
-  localStorage.setItem("theme", newTheme);
-}
-
-function updateThemeIcon(theme) {
-  const themeIcon = document.getElementById("themeIcon");
-  if (themeIcon) {
-    themeIcon.textContent = theme === "light" ? "🌙" : "☀️";
-  }
-}
-
-// Authentication UI Management
-function showAuthScreen() {
-  document.getElementById("authContainer").classList.remove("hidden");
-  document.getElementById("mainApp").classList.add("hidden");
-}
-
-function showMainApp() {
-  document.getElementById("authContainer").classList.add("hidden");
-  document.getElementById("mainApp").classList.remove("hidden");
-}
-
-function toggleAuthForm() {
-  const loginForm = document.getElementById("loginForm");
-  const signupForm = document.getElementById("signupForm");
-  const toggleText = document.getElementById("authToggleText");
-
-  if (loginForm.classList.contains("hidden")) {
-    // Show login form
-    loginForm.classList.remove("hidden");
-    signupForm.classList.add("hidden");
-    toggleText.innerHTML =
-      'Don\'t have an account? <button type="button" class="auth-link" id="authToggleBtn">Sign up</button>';
-
-    // Clear signup errors
-    hideAuthErrors();
-  } else {
-    // Show signup form
-    loginForm.classList.add("hidden");
-    signupForm.classList.remove("hidden");
-    toggleText.innerHTML =
-      'Already have an account? <button type="button" class="auth-link" id="authToggleBtn">Sign in</button>';
-
-    // Clear login errors
-    hideAuthErrors();
-  }
-}
-
-function showAuthError(message, formType = "login") {
-  const errorElement = document.getElementById(
-    formType === "login" ? "authError" : "signupError"
-  );
-  if (errorElement) {
-    errorElement.textContent = message;
-    errorElement.classList.remove("hidden");
-  }
-}
-
-function hideAuthErrors() {
-  const authError = document.getElementById("authError");
-  const signupError = document.getElementById("signupError");
-  if (authError) authError.classList.add("hidden");
-  if (signupError) signupError.classList.add("hidden");
-}
-
-function showAuthLoading(show) {
-  const loading = document.getElementById("authLoading");
-  const loginForm = document.getElementById("loginForm");
-  const signupForm = document.getElementById("signupForm");
-  const toggleSection = document.querySelector(".auth-toggle");
-
-  if (show) {
-    loading.classList.remove("hidden");
-    loginForm.classList.add("hidden");
-    signupForm.classList.add("hidden");
-    toggleSection.classList.add("hidden");
-  } else {
-    loading.classList.add("hidden");
-    // Show the appropriate form
-    if (
-      document
-        .getElementById("authToggleText")
-        .textContent.includes("Don't have an account?")
-    ) {
-      loginForm.classList.remove("hidden");
-      signupForm.classList.add("hidden");
+      return sections;
     } else {
-      loginForm.classList.add("hidden");
-      signupForm.classList.remove("hidden");
+      return [...defaultSections];
     }
-    toggleSection.classList.remove("hidden");
+  } catch (error) {
+    console.error("Error loading sections:", error);
+    return [...defaultSections];
   }
 }
 
-// Modal Management
-function showModal(modalId) {
-  const modal = document.getElementById(modalId);
-  if (modal) {
-    modal.classList.remove("hidden");
-    modal.style.display = "flex";
+async function loadTodos() {
+  try {
+    if (isFirebaseConnected && db) {
+      const snapshot = await db.collection("todos").get();
+      const todos = [];
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        todos.push({
+          id: doc.id,
+          ...data,
+          createdAt: data.createdAt?.toDate() || new Date(),
+          modifiedAt: data.modifiedAt?.toDate() || new Date(),
+        });
+      });
+
+      if (todos.length === 0) {
+        // Initialize with sample todos
+        await initializeSampleTodos();
+        return [...sampleTodos];
+      }
+
+      return todos;
+    } else {
+      return [...sampleTodos];
+    }
+  } catch (error) {
+    console.error("Error loading todos:", error);
+    return [...sampleTodos];
   }
 }
 
-function hideModal(modalId) {
-  const modal = document.getElementById(modalId);
-  if (modal) {
-    modal.classList.add("hidden");
-    modal.style.display = "none";
+async function loadTeamMembers() {
+  try {
+    if (isFirebaseConnected && db) {
+      const snapshot = await db.collection("users").get();
+      const members = [];
+      snapshot.forEach((doc) => {
+        members.push({ id: doc.id, ...doc.data() });
+      });
+
+      if (members.length === 0) {
+        // Initialize with sample team members
+        await initializeSampleTeamMembers();
+        return [...sampleTeamMembers];
+      }
+
+      return members;
+    } else {
+      return [...sampleTeamMembers];
+    }
+  } catch (error) {
+    console.error("Error loading team members:", error);
+    return [...sampleTeamMembers];
   }
 }
 
-function hideAllModals() {
-  document.querySelectorAll(".modal").forEach((modal) => {
-    modal.classList.add("hidden");
-    modal.style.display = "none";
-  });
-}
+// Initialize Default Data
+async function initializeDefaultSections() {
+  if (!isFirebaseConnected || !db) return;
 
-// User Info Updates
-function updateUserInfo(user) {
-  const nameElement = document.getElementById("currentUserName");
-  if (nameElement && user) {
-    const userData = appState.teamMembers.find((u) => u.uid === user.uid);
-    nameElement.textContent = userData
-      ? userData.name
-      : user.email || "Demo User";
+  try {
+    const batch = db.batch();
+    defaultSections.forEach((section) => {
+      const ref = db.collection("sections").doc(section.id);
+      batch.set(ref, section);
+    });
+    await batch.commit();
+    console.log("Default sections initialized");
+  } catch (error) {
+    console.error("Error initializing default sections:", error);
   }
 }
 
-function updateTeamInfo() {
-  const onlineCount = appState.teamMembers.filter((m) => m.online).length;
-  const onlineCountElement = document.getElementById("onlineCount");
-  if (onlineCountElement) {
-    onlineCountElement.textContent = onlineCount;
+async function initializeSampleTodos() {
+  if (!isFirebaseConnected || !db) return;
+
+  try {
+    const batch = db.batch();
+    sampleTodos.forEach((todo) => {
+      const ref = db.collection("todos").doc(todo.id);
+      batch.set(ref, {
+        ...todo,
+        createdAt: firebase.firestore.Timestamp.fromDate(todo.createdAt),
+        modifiedAt: firebase.firestore.Timestamp.fromDate(todo.modifiedAt),
+      });
+    });
+    await batch.commit();
+    console.log("Sample todos initialized");
+  } catch (error) {
+    console.error("Error initializing sample todos:", error);
   }
 }
 
-function updateSettingsInfo() {
-  const userIdDisplay = document.getElementById("userIdDisplay");
-  const dbStatus = document.getElementById("dbStatus");
-  const lastSyncDisplay = document.getElementById("lastSync");
+async function initializeSampleTeamMembers() {
+  if (!isFirebaseConnected || !db) return;
 
-  if (userIdDisplay && appState.currentUser) {
-    userIdDisplay.textContent =
-      appState.currentUser.uid.substring(0, 8) + "...";
+  try {
+    const batch = db.batch();
+    sampleTeamMembers.forEach((member) => {
+      const ref = db.collection("users").doc(member.id);
+      batch.set(ref, member);
+    });
+    await batch.commit();
+    console.log("Sample team members initialized");
+  } catch (error) {
+    console.error("Error initializing sample team members:", error);
   }
-
-  if (dbStatus) {
-    dbStatus.textContent = isUsingMockData
-      ? "Demo Mode"
-      : appState.isOnline
-      ? "Connected"
-      : "Offline";
-  }
-
-  if (lastSyncDisplay && appState.lastSync) {
-    lastSyncDisplay.textContent = appState.lastSync.toLocaleTimeString();
-  }
-}
-
-// Initialize demo data
-function initializeDemoData() {
-  appState.sections = [...mockData.sections];
-  appState.todos = [...mockData.todos];
-  appState.teamMembers = [...mockData.teamMembers];
-  appState.lastSync = new Date();
 }
 
 // Section Management
-function renderSections() {
-  const container = document.getElementById("sectionsContainer");
-  if (!container) return;
-
-  // Clear loading state
-  container.innerHTML = "";
-
-  const filteredSections = getFilteredSections();
-
-  if (filteredSections.length === 0) {
-    container.innerHTML =
-      '<div class="loading-sections"><p>No sections found. Add some todos to get started!</p></div>';
-    return;
-  }
-
-  filteredSections.forEach((section) => {
-    const sectionElement = createSectionElement(section);
-    container.appendChild(sectionElement);
-  });
-}
-
-function getFilteredSections() {
-  return appState.sections.filter((section) => {
-    const sectionTodos = getTodosForSection(section.id);
-    return sectionTodos.length > 0 || section.isDefault;
-  });
-}
-
-function createSectionElement(section) {
-  const sectionDiv = document.createElement("div");
-  sectionDiv.className = "section";
-  sectionDiv.style.setProperty("--section-color", section.color);
-
-  const todos = getTodosForSection(section.id);
-  const todoCount = todos.length;
-  const createdBy = section.createdBy
-    ? ServiceAPI.getUserName(section.createdBy)
-    : "";
-
-  sectionDiv.innerHTML = `
-        <div class="section__header">
-            <h3 class="section__title">
-                ${section.name}
-                <span class="section__count">${todoCount}</span>
-                ${
-                  createdBy
-                    ? `<span class="created-by">by ${createdBy}</span>`
-                    : ""
-                }
-            </h3>
-            <div class="section__actions">
-                <button class="section__toggle" data-section-id="${
-                  section.id
-                }">−</button>
-                ${
-                  !section.isDefault
-                    ? `<button class="section__delete" data-section-id="${section.id}" title="Delete Section">🗑️</button>`
-                    : ""
-                }
-            </div>
-        </div>
-        <div class="section__content" id="content_${section.id}">
-            <button class="section__add" data-section-id="${
-              section.id
-            }">+ Add Todo</button>
-            <div class="todos" id="todos_${section.id}">
-                ${todos.map((todo) => createTodoElement(todo)).join("")}
-            </div>
-        </div>
-    `;
-
-  return sectionDiv;
-}
-
-function getTodosForSection(sectionId) {
-  return getFilteredTodos().filter((todo) => todo.sectionId === sectionId);
-}
-
-function getFilteredTodos() {
-  let filtered = [...appState.todos];
-
-  // Apply search filter
-  const searchInput = document.getElementById("searchInput");
-  const searchTerm = searchInput ? searchInput.value.toLowerCase() : "";
-  if (searchTerm) {
-    filtered = filtered.filter(
-      (todo) =>
-        todo.title.toLowerCase().includes(searchTerm) ||
-        (todo.description &&
-          todo.description.toLowerCase().includes(searchTerm))
-    );
-  }
-
-  // Apply status filter
-  const statusFilter = document.getElementById("statusFilter");
-  const statusValue = statusFilter ? statusFilter.value : "";
-  if (statusValue) {
-    filtered = filtered.filter((todo) => todo.status === statusValue);
-  }
-
-  // Apply member filter
-  const memberFilter = document.getElementById("memberFilter");
-  const memberValue = memberFilter ? memberFilter.value : "";
-  if (memberValue) {
-    filtered = filtered.filter((todo) => todo.assignedTo === memberValue);
-  }
-
-  // Apply sorting
-  const sortBy = document.getElementById("sortBy");
-  const sortValue = sortBy ? sortBy.value : "created";
-  filtered.sort((a, b) => {
-    switch (sortValue) {
-      case "created":
-        const aCreated = a.createdAt?.seconds || a.createdAt?.getTime() || 0;
-        const bCreated = b.createdAt?.seconds || b.createdAt?.getTime() || 0;
-        return bCreated - aCreated;
-      case "modified":
-        const aModified = a.modifiedAt?.seconds || a.modifiedAt?.getTime() || 0;
-        const bModified = b.modifiedAt?.seconds || b.modifiedAt?.getTime() || 0;
-        return bModified - aModified;
-      case "title":
-        return a.title.localeCompare(b.title);
-      default:
-        return 0;
-    }
-  });
-
-  return filtered;
-}
-
-function toggleSection(sectionId) {
-  const content = document.getElementById(`content_${sectionId}`);
-  const toggle = document.querySelector(
-    `[data-section-id="${sectionId}"].section__toggle`
-  );
-
-  if (content && toggle) {
-    if (content.classList.contains("collapsed")) {
-      content.classList.remove("collapsed");
-      toggle.textContent = "−";
+async function saveSection(sectionData) {
+  try {
+    if (isFirebaseConnected && db) {
+      if (editingSection) {
+        await db
+          .collection("sections")
+          .doc(editingSection.id)
+          .update(sectionData);
+      } else {
+        const newSection = { id: generateId(), ...sectionData };
+        await db.collection("sections").doc(newSection.id).set(newSection);
+      }
     } else {
-      content.classList.add("collapsed");
-      toggle.textContent = "+";
+      // Offline mode - update local data
+      if (editingSection) {
+        const index = currentSections.findIndex(
+          (s) => s.id === editingSection.id
+        );
+        if (index !== -1) {
+          currentSections[index] = { ...editingSection, ...sectionData };
+        }
+      } else {
+        const newSection = { id: generateId(), ...sectionData };
+        currentSections.push(newSection);
+      }
+      renderSections();
+      updateSectionSelects();
     }
+  } catch (error) {
+    console.error("Error saving section:", error);
+    alert("Error saving section. Please try again.");
   }
 }
 
 async function deleteSection(sectionId) {
-  const section = appState.sections.find((s) => s.id === sectionId);
-  const todosInSection = appState.todos.filter(
-    (t) => t.sectionId === sectionId
-  );
-
-  if (todosInSection.length > 0) {
-    alert(
-      `Cannot delete "${section.name}" because it contains ${todosInSection.length} todo(s). Please move or delete the todos first.`
-    );
+  if (
+    !confirm(
+      "Are you sure you want to delete this section? All todos in this section will also be deleted."
+    )
+  ) {
     return;
   }
 
-  if (
-    confirm(`Are you sure you want to delete the section "${section.name}"?`)
-  ) {
-    try {
-      await ServiceAPI.deleteSection(sectionId);
-      showNotification(`Section "${section.name}" deleted`, "success");
-    } catch (error) {
-      alert("Error deleting section: " + error.message);
+  try {
+    if (isFirebaseConnected && db) {
+      // Delete all todos in this section first
+      const todosSnapshot = await db
+        .collection("todos")
+        .where("sectionId", "==", sectionId)
+        .get();
+      const batch = db.batch();
+
+      todosSnapshot.forEach((doc) => {
+        batch.delete(doc.ref);
+      });
+
+      // Delete the section
+      batch.delete(db.collection("sections").doc(sectionId));
+      await batch.commit();
+    } else {
+      // Offline mode
+      currentSections = currentSections.filter((s) => s.id !== sectionId);
+      currentTodos = currentTodos.filter((t) => t.sectionId !== sectionId);
+      renderSections();
+      updateStatistics();
     }
+  } catch (error) {
+    console.error("Error deleting section:", error);
+    alert("Error deleting section. Please try again.");
   }
 }
 
 // Todo Management
-function createTodoElement(todo) {
-  const assignedMember = appState.teamMembers.find(
-    (m) => m.email === todo.assignedTo
-  );
-  const memberName = assignedMember
-    ? assignedMember.name
-    : todo.assignedTo || "Unassigned";
-  const createdBy = todo.createdBy
-    ? ServiceAPI.getUserName(todo.createdBy)
-    : "Unknown";
-
-  return `
-        <div class="todo" data-id="${todo.id}">
-            <div class="todo__header">
-                <textarea class="todo__title" data-todo-id="${
-                  todo.id
-                }" data-field="title">${todo.title}</textarea>
-                <div class="todo__actions">
-                    <button class="todo__delete" data-todo-id="${
-                      todo.id
-                    }" title="Delete Todo">🗑️</button>
-                </div>
-            </div>
-            <textarea class="todo__description" placeholder="Add description..." 
-                      data-todo-id="${todo.id}" data-field="description">${
-    todo.description || ""
-  }</textarea>
-            <div class="todo__meta">
-                <select class="todo__status" data-status="${
-                  todo.status
-                }" data-todo-id="${todo.id}">
-                    ${statusOptions
-                      .map(
-                        (option) =>
-                          `<option value="${option.value}" ${
-                            option.value === todo.status ? "selected" : ""
-                          }>${option.label}</option>`
-                      )
-                      .join("")}
-                </select>
-                <select class="todo__assigned" data-todo-id="${todo.id}">
-                    <option value="">Unassigned</option>
-                    ${appState.teamMembers
-                      .map(
-                        (member) =>
-                          `<option value="${member.email}" ${
-                            member.email === todo.assignedTo ? "selected" : ""
-                          }>${member.name}</option>`
-                      )
-                      .join("")}
-                </select>
-                <div class="todo__timestamps">
-                    <div>Created: ${formatDate(
-                      todo.createdAt
-                    )} by ${createdBy}</div>
-                    <div>Modified: ${formatDate(todo.modifiedAt)}</div>
-                </div>
-            </div>
-        </div>
-    `;
-}
-
-async function addTodo(sectionId) {
-  const newTodo = {
-    id: generateId(),
-    title: "New Todo",
-    description: "",
-    sectionId: sectionId,
-    status: "todo",
-    assignedTo: "",
-  };
-
+async function saveTodo(todoData) {
   try {
-    await ServiceAPI.createTodo(newTodo);
+    const now = new Date();
 
-    // Focus on the new todo title after a short delay
-    setTimeout(() => {
-      const todoElement = document.querySelector(
-        `[data-id="${newTodo.id}"] .todo__title`
-      );
-      if (todoElement) {
-        todoElement.select();
-        todoElement.focus();
+    if (isFirebaseConnected && db) {
+      if (editingTodo) {
+        await db
+          .collection("todos")
+          .doc(editingTodo.id)
+          .update({
+            ...todoData,
+            modifiedAt: firebase.firestore.Timestamp.fromDate(now),
+          });
+      } else {
+        const newTodo = {
+          id: generateId(),
+          ...todoData,
+          createdAt: firebase.firestore.Timestamp.fromDate(now),
+          modifiedAt: firebase.firestore.Timestamp.fromDate(now),
+          createdBy: "system",
+        };
+        await db.collection("todos").doc(newTodo.id).set(newTodo);
       }
-    }, 300);
-
-    if (isUsingMockData) {
-      showNotification("Todo added (Demo Mode)", "success");
+    } else {
+      // Offline mode
+      if (editingTodo) {
+        const index = currentTodos.findIndex((t) => t.id === editingTodo.id);
+        if (index !== -1) {
+          currentTodos[index] = {
+            ...editingTodo,
+            ...todoData,
+            modifiedAt: now,
+          };
+        }
+      } else {
+        const newTodo = {
+          id: generateId(),
+          ...todoData,
+          createdAt: now,
+          modifiedAt: now,
+          createdBy: "system",
+        };
+        currentTodos.push(newTodo);
+      }
+      renderSections();
+      updateStatistics();
     }
   } catch (error) {
-    alert("Error creating todo: " + error.message);
-  }
-}
-
-async function updateTodo(todoId, field, value) {
-  const todo = appState.todos.find((t) => t.id === todoId);
-  if (!todo) return;
-
-  // Show visual feedback
-  const todoElement = document.querySelector(`[data-id="${todoId}"]`);
-  if (todoElement) {
-    todoElement.classList.add("syncing");
-  }
-
-  try {
-    await ServiceAPI.updateTodo(todoId, { [field]: value });
-
-    // Remove syncing indicator
-    setTimeout(() => {
-      if (todoElement) {
-        todoElement.classList.remove("syncing");
-      }
-    }, 500);
-
-    if (isUsingMockData && field === "status") {
-      showNotification(`Todo status updated (Demo Mode)`, "success");
-    }
-  } catch (error) {
-    console.error("Error updating todo:", error);
-    if (todoElement) {
-      todoElement.classList.remove("syncing");
-    }
-    showNotification("Error updating todo", "error");
+    console.error("Error saving todo:", error);
+    alert("Error saving todo. Please try again.");
   }
 }
 
 async function deleteTodo(todoId) {
-  const todo = appState.todos.find((t) => t.id === todoId);
-  if (confirm(`Are you sure you want to delete "${todo.title}"?`)) {
-    try {
-      await ServiceAPI.deleteTodo(todoId);
-      showNotification(`Todo "${todo.title}" deleted`, "success");
-    } catch (error) {
-      alert("Error deleting todo: " + error.message);
+  if (!confirm("Are you sure you want to delete this todo?")) {
+    return;
+  }
+
+  try {
+    if (isFirebaseConnected && db) {
+      await db.collection("todos").doc(todoId).delete();
+    } else {
+      // Offline mode
+      currentTodos = currentTodos.filter((t) => t.id !== todoId);
+      renderSections();
+      updateStatistics();
     }
+  } catch (error) {
+    console.error("Error deleting todo:", error);
+    alert("Error deleting todo. Please try again.");
+  }
+}
+
+async function updateTodoStatus(todoId, newStatus) {
+  try {
+    if (isFirebaseConnected && db) {
+      await db
+        .collection("todos")
+        .doc(todoId)
+        .update({
+          status: newStatus,
+          modifiedAt: firebase.firestore.Timestamp.fromDate(new Date()),
+        });
+    } else {
+      // Offline mode
+      const index = currentTodos.findIndex((t) => t.id === todoId);
+      if (index !== -1) {
+        currentTodos[index].status = newStatus;
+        currentTodos[index].modifiedAt = new Date();
+      }
+      renderSections();
+      updateStatistics();
+    }
+  } catch (error) {
+    console.error("Error updating todo status:", error);
+    alert("Error updating todo status. Please try again.");
   }
 }
 
 // Team Management
-function renderTeamList() {
-  const container = document.getElementById("teamList");
+async function saveTeamMember(memberData) {
+  try {
+    if (isFirebaseConnected && db) {
+      const newMember = {
+        id: generateId(),
+        ...memberData,
+        online: false,
+      };
+      await db.collection("users").doc(newMember.id).set(newMember);
+    } else {
+      // Offline mode
+      const newMember = {
+        id: generateId(),
+        ...memberData,
+        online: false,
+      };
+      currentTeamMembers.push(newMember);
+      updateAssigneeSelects();
+      updateFilters();
+      renderTeamMembers();
+    }
+  } catch (error) {
+    console.error("Error saving team member:", error);
+    alert("Error saving team member. Please try again.");
+  }
+}
+
+async function deleteTeamMember(memberId) {
+  if (!confirm("Are you sure you want to remove this team member?")) {
+    return;
+  }
+
+  try {
+    if (isFirebaseConnected && db) {
+      await db.collection("users").doc(memberId).delete();
+    } else {
+      // Offline mode
+      currentTeamMembers = currentTeamMembers.filter((m) => m.id !== memberId);
+      updateAssigneeSelects();
+      updateFilters();
+      renderTeamMembers();
+    }
+  } catch (error) {
+    console.error("Error deleting team member:", error);
+    alert("Error deleting team member. Please try again.");
+  }
+}
+
+// Data Refresh Functions
+async function refreshSections() {
+  currentSections = await loadSections();
+  renderSections();
+  updateSectionSelects();
+  updateFilters();
+}
+
+async function refreshTodos() {
+  currentTodos = await loadTodos();
+  renderSections();
+  updateStatistics();
+}
+
+async function refreshTeamMembers() {
+  currentTeamMembers = await loadTeamMembers();
+  updateAssigneeSelects();
+  updateFilters();
+  renderTeamMembers();
+}
+
+async function refreshData() {
+  console.log("Refreshing all data...");
+  await Promise.all([refreshSections(), refreshTodos(), refreshTeamMembers()]);
+  console.log("Data refresh completed");
+}
+
+// Rendering Functions
+function renderSections() {
+  const container = document.getElementById("sections-container");
+  if (!container) {
+    console.error("Sections container not found");
+    return;
+  }
+
+  console.log("Rendering sections:", currentSections.length);
+  container.innerHTML = "";
+
+  if (currentSections.length === 0) {
+    container.innerHTML = '<div class="loading">Loading sections...</div>';
+    return;
+  }
+
+  currentSections.forEach((section) => {
+    const sectionTodos = currentTodos.filter(
+      (todo) => todo.sectionId === section.id
+    );
+    const filteredTodos = applyFilters(sectionTodos);
+
+    const sectionCard = document.createElement("div");
+    sectionCard.className = "section-card";
+    sectionCard.style.setProperty("--section-color", section.color);
+
+    sectionCard.innerHTML = `
+      <div class="section-header">
+        <h3 class="section-title">${section.name}</h3>
+        <div class="section-actions">
+          <button class="btn btn--outline btn--sm" onclick="editSection('${
+            section.id
+          }')" title="Edit Section">
+            ✏️
+          </button>
+          ${
+            !section.isDefault
+              ? `
+            <button class="btn btn--outline btn--sm" onclick="deleteSection('${section.id}')" title="Delete Section">
+              🗑️
+            </button>
+          `
+              : ""
+          }
+        </div>
+      </div>
+      <div class="section-body">
+        <button class="btn btn--secondary add-todo-btn" onclick="openTodoModal('${
+          section.id
+        }')">
+          + Add Todo
+        </button>
+        <div class="todo-list">
+          ${
+            filteredTodos.length > 0
+              ? filteredTodos.map((todo) => renderTodoItem(todo)).join("")
+              : '<div class="empty-state"><p>No todos yet</p></div>'
+          }
+        </div>
+      </div>
+    `;
+
+    container.appendChild(sectionCard);
+  });
+}
+
+function renderTodoItem(todo) {
+  const assignedMember = currentTeamMembers.find(
+    (member) => member.email === todo.assignedTo
+  );
+  const statusColors = {
+    todo: "#f44336",
+    "in-progress": "#ff9800",
+    completed: "#4caf50",
+  };
+
+  return `
+    <div class="todo-item" style="--todo-status-color: ${
+      statusColors[todo.status]
+    }" onclick="editTodo('${todo.id}')">
+      <div class="todo-header">
+        <h4 class="todo-title">${todo.title}</h4>
+        <span class="todo-status ${todo.status}">${todo.status.replace(
+    "-",
+    " "
+  )}</span>
+      </div>
+      ${
+        todo.description
+          ? `<p class="todo-description">${todo.description}</p>`
+          : ""
+      }
+      <div class="todo-meta">
+        <div class="todo-assignee">
+          ${assignedMember ? `👤 ${assignedMember.name}` : "👤 Unassigned"}
+        </div>
+        <div class="todo-actions">
+          ${
+            todo.status !== "completed"
+              ? `<button class="todo-action" onclick="event.stopPropagation(); updateTodoStatus('${todo.id}', 'completed')" title="Mark Complete">✓</button>`
+              : `<button class="todo-action" onclick="event.stopPropagation(); updateTodoStatus('${todo.id}', 'todo')" title="Mark Incomplete">↶</button>`
+          }
+          <button class="todo-action" onclick="event.stopPropagation(); deleteTodo('${
+            todo.id
+          }')" title="Delete">🗑️</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderTeamMembers() {
+  const container = document.getElementById("team-list");
   if (!container) return;
 
   container.innerHTML = "";
 
-  appState.teamMembers.forEach((member) => {
-    const memberDiv = document.createElement("div");
-    memberDiv.className = "team-member";
-    memberDiv.innerHTML = `
-            <div class="team-member__info">
-                <div class="team-member__name">${member.name}</div>
-                <div class="team-member__email">${member.email}</div>
-                ${
-                  member.lastSeen
-                    ? `<div class="last-seen">Last seen: ${formatDate(
-                        member.lastSeen
-                      )}</div>`
-                    : ""
-                }
-            </div>
-            <div class="team-member__status">
-                <div class="status-indicator ${
-                  member.online ? "online" : ""
-                }"></div>
-                <span>${member.online ? "Online" : "Offline"}</span>
-            </div>
-        `;
-    container.appendChild(memberDiv);
+  if (currentTeamMembers.length === 0) {
+    container.innerHTML =
+      '<div class="empty-state"><p>No team members yet</p></div>';
+    return;
+  }
+
+  currentTeamMembers.forEach((member) => {
+    const memberElement = document.createElement("div");
+    memberElement.className = "team-member";
+    memberElement.innerHTML = `
+      <div class="member-info">
+        <div class="member-avatar">${getInitials(member.name)}</div>
+        <div class="member-details">
+          <h4>${member.name}</h4>
+          <p>${member.email}</p>
+        </div>
+      </div>
+      <div class="member-status">
+        <div class="status-indicator ${member.online ? "" : "offline"}"></div>
+        <span>${member.online ? "Online" : "Offline"}</span>
+        <button class="btn btn--outline btn--sm" onclick="deleteTeamMember('${
+          member.id
+        }')" title="Remove Member">
+          🗑️
+        </button>
+      </div>
+    `;
+    container.appendChild(memberElement);
   });
 }
 
-// Filter and Search
+// Filter Functions
+function applyFilters(todos) {
+  const statusFilter = document.getElementById("status-filter")?.value || "";
+  const assigneeFilter =
+    document.getElementById("assignee-filter")?.value || "";
+
+  return todos.filter((todo) => {
+    const statusMatch = !statusFilter || todo.status === statusFilter;
+    const assigneeMatch = !assigneeFilter || todo.assignedTo === assigneeFilter;
+    return statusMatch && assigneeMatch;
+  });
+}
+
 function updateFilters() {
-  const memberFilter = document.getElementById("memberFilter");
-  if (!memberFilter) return;
+  // Update assignee filter
+  const assigneeFilter = document.getElementById("assignee-filter");
+  if (!assigneeFilter) return;
 
-  const currentValue = memberFilter.value;
+  const currentValue = assigneeFilter.value;
+  assigneeFilter.innerHTML = '<option value="">All Assignees</option>';
 
-  memberFilter.innerHTML = '<option value="">All Members</option>';
-  appState.teamMembers.forEach((member) => {
+  currentTeamMembers.forEach((member) => {
     const option = document.createElement("option");
     option.value = member.email;
     option.textContent = member.name;
-    if (member.email === currentValue) option.selected = true;
-    memberFilter.appendChild(option);
+    assigneeFilter.appendChild(option);
   });
+
+  assigneeFilter.value = currentValue;
 }
 
-function applyFilters() {
-  renderSections();
+function updateSectionSelects() {
+  const todoSectionSelect = document.getElementById("todo-section");
+  if (!todoSectionSelect) return;
+
+  const currentValue = todoSectionSelect.value;
+  todoSectionSelect.innerHTML = "";
+
+  currentSections.forEach((section) => {
+    const option = document.createElement("option");
+    option.value = section.id;
+    option.textContent = section.name;
+    todoSectionSelect.appendChild(option);
+  });
+
+  todoSectionSelect.value = currentValue;
+}
+
+function updateAssigneeSelects() {
+  const todoAssigneeSelect = document.getElementById("todo-assignee");
+  if (!todoAssigneeSelect) return;
+
+  const currentValue = todoAssigneeSelect.value;
+  todoAssigneeSelect.innerHTML = '<option value="">Unassigned</option>';
+
+  currentTeamMembers.forEach((member) => {
+    const option = document.createElement("option");
+    option.value = member.email;
+    option.textContent = member.name;
+    todoAssigneeSelect.appendChild(option);
+  });
+
+  todoAssigneeSelect.value = currentValue;
 }
 
 // Statistics
-function showStatistics() {
-  const container = document.getElementById("statsContent");
-  if (!container) return;
+function updateStatistics() {
+  const totalTodos = currentTodos.length;
+  const completedTodos = currentTodos.filter(
+    (todo) => todo.status === "completed"
+  ).length;
+  const inProgressTodos = currentTodos.filter(
+    (todo) => todo.status === "in-progress"
+  ).length;
+  const todoTodos = currentTodos.filter(
+    (todo) => todo.status === "todo"
+  ).length;
 
-  const stats = calculateStatistics();
+  const totalElement = document.getElementById("total-todos");
+  const completedElement = document.getElementById("completed-todos");
+  const inProgressElement = document.getElementById("inprogress-todos");
+  const todoElement = document.getElementById("todo-todos");
 
-  container.innerHTML = `
-        <div class="stat-card">
-            <div class="stat-card__value">${stats.totalTodos}</div>
-            <div class="stat-card__label">Total Todos</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-card__value">${stats.completedTodos}</div>
-            <div class="stat-card__label">Completed</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-card__value">${stats.inProgressTodos}</div>
-            <div class="stat-card__label">In Progress</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-card__value">${stats.todoTodos}</div>
-            <div class="stat-card__label">To Do</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-card__value">${stats.completionRate}%</div>
-            <div class="stat-card__label">Completion Rate</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-card__value">${stats.activeSections}</div>
-            <div class="stat-card__label">Active Sections</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-card__value">${stats.teamMembers}</div>
-            <div class="stat-card__label">Team Members</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-card__value">${stats.onlineMembers}</div>
-            <div class="stat-card__label">Online Now</div>
-        </div>
-    `;
-
-  showModal("statsModal");
+  if (totalElement) totalElement.textContent = totalTodos;
+  if (completedElement) completedElement.textContent = completedTodos;
+  if (inProgressElement) inProgressElement.textContent = inProgressTodos;
+  if (todoElement) todoElement.textContent = todoTodos;
 }
 
-function calculateStatistics() {
-  const totalTodos = appState.todos.length;
-  const completedTodos = appState.todos.filter(
-    (t) => t.status === "completed"
-  ).length;
-  const inProgressTodos = appState.todos.filter(
-    (t) => t.status === "in-progress"
-  ).length;
-  const todoTodos = appState.todos.filter((t) => t.status === "todo").length;
-  const completionRate =
-    totalTodos > 0 ? Math.round((completedTodos / totalTodos) * 100) : 0;
-  const activeSections = appState.sections.filter((s) =>
-    appState.todos.some((t) => t.sectionId === s.id)
-  ).length;
-  const teamMembers = appState.teamMembers.length;
-  const onlineMembers = appState.teamMembers.filter((m) => m.online).length;
+function renderStatisticsChart() {
+  const canvas = document.getElementById("stats-chart");
+  if (!canvas) return;
 
-  return {
-    totalTodos,
-    completedTodos,
-    inProgressTodos,
-    todoTodos,
-    completionRate,
-    activeSections,
-    teamMembers,
-    onlineMembers,
-  };
+  const ctx = canvas.getContext("2d");
+
+  // Destroy existing chart if it exists
+  if (statisticsChart) {
+    statisticsChart.destroy();
+  }
+
+  const completedTodos = currentTodos.filter(
+    (todo) => todo.status === "completed"
+  ).length;
+  const inProgressTodos = currentTodos.filter(
+    (todo) => todo.status === "in-progress"
+  ).length;
+  const todoTodos = currentTodos.filter(
+    (todo) => todo.status === "todo"
+  ).length;
+
+  statisticsChart = new Chart(ctx, {
+    type: "doughnut",
+    data: {
+      labels: ["To Do", "In Progress", "Completed"],
+      datasets: [
+        {
+          data: [todoTodos, inProgressTodos, completedTodos],
+          backgroundColor: ["#1FB8CD", "#FFC185", "#B4413C"],
+          borderWidth: 0,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: "bottom",
+        },
+      },
+    },
+  });
 }
 
-// Data Import/Export (for backup purposes)
+// Modal Functions
+function openSectionModal(sectionId = null) {
+  editingSection = sectionId
+    ? currentSections.find((s) => s.id === sectionId)
+    : null;
+
+  const modal = document.getElementById("section-modal");
+  const title = document.getElementById("section-modal-title");
+  const submitText = document.getElementById("section-submit-text");
+  const form = document.getElementById("section-form");
+
+  if (!modal || !title || !submitText || !form) return;
+
+  title.textContent = editingSection ? "Edit Section" : "Add Section";
+  submitText.textContent = editingSection ? "Update Section" : "Add Section";
+
+  if (editingSection) {
+    document.getElementById("section-name").value = editingSection.name;
+    document.getElementById("section-color").value = editingSection.color;
+  } else {
+    form.reset();
+  }
+
+  modal.classList.remove("hidden");
+}
+
+function openTodoModal(sectionId = null, todoId = null) {
+  editingTodo = todoId ? currentTodos.find((t) => t.id === todoId) : null;
+
+  const modal = document.getElementById("todo-modal");
+  const title = document.getElementById("todo-modal-title");
+  const submitText = document.getElementById("todo-submit-text");
+  const form = document.getElementById("todo-form");
+
+  if (!modal || !title || !submitText || !form) return;
+
+  title.textContent = editingTodo ? "Edit Todo" : "Add Todo";
+  submitText.textContent = editingTodo ? "Update Todo" : "Add Todo";
+
+  updateSectionSelects();
+  updateAssigneeSelects();
+
+  if (editingTodo) {
+    document.getElementById("todo-title").value = editingTodo.title;
+    document.getElementById("todo-description").value =
+      editingTodo.description || "";
+    document.getElementById("todo-section").value = editingTodo.sectionId;
+    document.getElementById("todo-status").value = editingTodo.status;
+    document.getElementById("todo-assignee").value =
+      editingTodo.assignedTo || "";
+  } else {
+    form.reset();
+    if (sectionId) {
+      document.getElementById("todo-section").value = sectionId;
+    }
+  }
+
+  modal.classList.remove("hidden");
+}
+
+function openTeamModal() {
+  renderTeamMembers();
+  const modal = document.getElementById("team-modal");
+  if (modal) {
+    modal.classList.remove("hidden");
+  }
+}
+
+function openStatisticsModal() {
+  updateStatistics();
+  const modal = document.getElementById("statistics-modal");
+  if (modal) {
+    modal.classList.remove("hidden");
+    // Small delay to ensure modal is visible before rendering chart
+    setTimeout(() => {
+      renderStatisticsChart();
+    }, 100);
+  }
+}
+
+function closeModal(modalId) {
+  const modal = document.getElementById(modalId);
+  if (modal) {
+    modal.classList.add("hidden");
+  }
+  editingSection = null;
+  editingTodo = null;
+}
+
+// Data Export Function
 function exportData() {
-  const exportData = {
-    sections: appState.sections,
-    todos: appState.todos,
-    teamMembers: appState.teamMembers,
+  const data = {
+    sections: currentSections,
+    todos: currentTodos.map((todo) => ({
+      ...todo,
+      createdAt: todo.createdAt.toISOString(),
+      modifiedAt: todo.modifiedAt.toISOString(),
+    })),
+    teamMembers: currentTeamMembers,
     exportDate: new Date().toISOString(),
-    isDemo: isUsingMockData,
   };
 
-  const dataStr = JSON.stringify(exportData, null, 2);
+  const dataStr = JSON.stringify(data, null, 2);
   const dataBlob = new Blob([dataStr], { type: "application/json" });
-  const url = URL.createObjectURL(dataBlob);
 
   const link = document.createElement("a");
-  link.href = url;
-  link.download = `team-todo-backup-${
+  link.href = URL.createObjectURL(dataBlob);
+  link.download = `team-todo-export-${
     new Date().toISOString().split("T")[0]
   }.json`;
   link.click();
-
-  URL.revokeObjectURL(url);
 }
 
-// Handle successful authentication
-function handleAuthSuccess(user, userName = null) {
-  appState.currentUser = user;
-  appState.isAuthenticated = true;
+// Global Functions for onclick handlers
+window.editSection = (sectionId) => openSectionModal(sectionId);
+window.deleteSection = deleteSection;
+window.editTodo = (todoId) => openTodoModal(null, todoId);
+window.deleteTodo = deleteTodo;
+window.updateTodoStatus = updateTodoStatus;
+window.deleteTeamMember = deleteTeamMember;
+window.openTodoModal = openTodoModal;
 
-  // Initialize demo data
-  initializeDemoData();
+// Theme Management
+function initializeTheme() {
+  const savedTheme = localStorage.getItem("theme") || "auto";
+  applyTheme(savedTheme);
 
-  // Update user info in team members if needed
-  if (userName) {
-    const demoUser = appState.teamMembers.find((u) => u.uid === user.uid);
-    if (demoUser) {
-      demoUser.name = userName;
-      demoUser.email = user.email;
-    }
+  // Set the correct radio button
+  const themeRadio = document.querySelector(
+    `input[name="theme"][value="${savedTheme}"]`
+  );
+  if (themeRadio) {
+    themeRadio.checked = true;
+  }
+}
+
+function applyTheme(theme) {
+  const html = document.documentElement;
+  const themeIcon = document.getElementById("theme-icon");
+
+  if (theme === "dark") {
+    html.setAttribute("data-color-scheme", "dark");
+    if (themeIcon) themeIcon.textContent = "☀️";
+  } else if (theme === "light") {
+    html.setAttribute("data-color-scheme", "light");
+    if (themeIcon) themeIcon.textContent = "🌙";
+  } else {
+    html.removeAttribute("data-color-scheme");
+    if (themeIcon) themeIcon.textContent = "🌙";
   }
 
-  // Show main app
-  showMainApp();
-  updateUserInfo(user);
-  updateTeamInfo();
-  renderSections();
-  updateFilters();
-  updateSettingsInfo();
-
-  // Show success message
-  updateConnectionStatus(
-    "success",
-    "Demo Mode - Welcome to Team Todo Manager!"
-  );
-  setTimeout(() => updateConnectionStatus("hidden", ""), 3000);
-
-  showNotification("Welcome! You can now manage todos in demo mode", "info");
+  localStorage.setItem("theme", theme);
 }
 
-// Event Listeners Setup
-function setupEventListeners() {
-  // Authentication Events - Use event delegation for better reliability
-  document.addEventListener("click", function (e) {
-    // Auth toggle button
-    if (e.target && e.target.id === "authToggleBtn") {
-      e.preventDefault();
-      toggleAuthForm();
-      return;
+// App Initialization
+async function initializeApp() {
+  try {
+    console.log("Initializing Team Todo Manager...");
+
+    // Show loading state
+    const container = document.getElementById("sections-container");
+    if (container) {
+      container.innerHTML = '<div class="loading">Loading app...</div>';
     }
 
-    // Theme toggle
-    if (
-      e.target &&
-      (e.target.id === "themeToggle" || e.target.closest("#themeToggle"))
-    ) {
+    // Check Firebase connection
+    await checkFirebaseConnection();
+
+    // Load data (works both online and offline)
+    await refreshData();
+
+    // Update UI
+    updateStatistics();
+
+    // Initialize theme
+    initializeTheme();
+
+    console.log("App initialized successfully");
+  } catch (error) {
+    console.error("Error initializing app:", error);
+
+    // Fallback to offline mode if initialization fails
+    currentSections = [...defaultSections];
+    currentTodos = [...sampleTodos];
+    currentTeamMembers = [...sampleTeamMembers];
+    renderSections();
+    updateStatistics();
+    updateFilters();
+  }
+}
+
+// Event Listeners
+document.addEventListener("DOMContentLoaded", () => {
+  console.log("DOM loaded, setting up event listeners...");
+
+  // Initialize the app
+  initializeApp();
+
+  // Section Modal Events
+  const addSectionBtn = document.getElementById("add-section-btn");
+  if (addSectionBtn) {
+    addSectionBtn.addEventListener("click", () => openSectionModal());
+  }
+
+  const closeSectionModal = document.getElementById("close-section-modal");
+  if (closeSectionModal) {
+    closeSectionModal.addEventListener("click", () =>
+      closeModal("section-modal")
+    );
+  }
+
+  const cancelSection = document.getElementById("cancel-section");
+  if (cancelSection) {
+    cancelSection.addEventListener("click", () => closeModal("section-modal"));
+  }
+
+  const sectionForm = document.getElementById("section-form");
+  if (sectionForm) {
+    sectionForm.addEventListener("submit", async (e) => {
       e.preventDefault();
-      toggleTheme();
-      return;
-    }
-
-    // Sign out
-    if (e.target && e.target.id === "signOutBtn") {
-      e.preventDefault();
-      if (confirm("Are you sure you want to sign out?")) {
-        appState.currentUser = null;
-        appState.isAuthenticated = false;
-        showAuthScreen();
-        showAuthLoading(false);
-        updateConnectionStatus("hidden", "");
-        showNotification("Signed out from demo mode", "info");
-      }
-      return;
-    }
-
-    // Team button
-    if (e.target && e.target.id === "teamButton") {
-      e.preventDefault();
-      showModal("teamModal");
-      renderTeamList();
-      return;
-    }
-
-    // Settings button
-    if (e.target && e.target.id === "settingsButton") {
-      e.preventDefault();
-      showModal("settingsModal");
-      updateSettingsInfo();
-      return;
-    }
-
-    // Stats button
-    if (e.target && e.target.id === "statsButton") {
-      e.preventDefault();
-      showStatistics();
-      return;
-    }
-
-    // Add section button
-    if (e.target && e.target.id === "addSectionBtn") {
-      e.preventDefault();
-      showModal("addSectionModal");
-      const input = document.getElementById("newSectionName");
-      if (input) input.focus();
-      return;
-    }
-
-    // Section actions
-    if (e.target && e.target.classList.contains("section__toggle")) {
-      e.preventDefault();
-      const sectionId = e.target.dataset.sectionId;
-      toggleSection(sectionId);
-      return;
-    }
-
-    if (e.target && e.target.classList.contains("section__delete")) {
-      e.preventDefault();
-      const sectionId = e.target.dataset.sectionId;
-      deleteSection(sectionId);
-      return;
-    }
-
-    // Add todo
-    if (e.target && e.target.classList.contains("section__add")) {
-      e.preventDefault();
-      const sectionId = e.target.dataset.sectionId;
-      addTodo(sectionId);
-      return;
-    }
-
-    // Delete todo
-    if (e.target && e.target.classList.contains("todo__delete")) {
-      e.preventDefault();
-      const todoId = e.target.dataset.todoId;
-      deleteTodo(todoId);
-      return;
-    }
-
-    // Modal controls
-    if (
-      e.target &&
-      (e.target.classList.contains("modal__close") ||
-        e.target.classList.contains("modal__overlay"))
-    ) {
-      e.preventDefault();
-      hideAllModals();
-      return;
-    }
-
-    // Notification close
-    if (e.target && e.target.id === "closeNotification") {
-      e.preventDefault();
-      document.getElementById("realtimeNotification").classList.add("hidden");
-      return;
-    }
-
-    // Export data
-    if (e.target && e.target.id === "exportBtn") {
-      e.preventDefault();
-      exportData();
-      return;
-    }
-
-    // Add section modal actions
-    if (e.target && e.target.id === "cancelAddSection") {
-      e.preventDefault();
-      hideModal("addSectionModal");
-      return;
-    }
-
-    if (e.target && e.target.id === "confirmAddSection") {
-      e.preventDefault();
-      const nameInput = document.getElementById("newSectionName");
-      const colorInput = document.getElementById("selectedColor");
-
-      if (!nameInput || !colorInput) return;
-
-      const name = nameInput.value.trim();
-      const color = colorInput.value;
-
-      if (!name) {
-        alert("Please enter a section name");
-        return;
-      }
-
-      const newSection = {
-        id: generateId(),
-        name: name,
-        color: color,
+      const formData = new FormData(e.target);
+      const sectionData = {
+        name: formData.get("name"),
+        color: formData.get("color"),
         isDefault: false,
       };
 
-      ServiceAPI.createSection(newSection)
-        .then(() => {
-          hideModal("addSectionModal");
-          nameInput.value = "";
-          showNotification(`Section "${name}" created`, "success");
-        })
-        .catch((error) => {
-          alert("Error creating section: " + error.message);
-        });
-      return;
-    }
+      await saveSection(sectionData);
+      closeModal("section-modal");
+    });
+  }
 
-    // Color picker
-    if (e.target && e.target.classList.contains("color-option")) {
-      e.preventDefault();
+  // Color preset buttons
+  document.querySelectorAll(".color-preset").forEach((button) => {
+    button.addEventListener("click", () => {
+      const color = button.dataset.color;
+      const colorInput = document.getElementById("section-color");
+      if (colorInput) {
+        colorInput.value = color;
+      }
+
+      // Update active state
       document
-        .querySelectorAll(".color-option")
-        .forEach((o) => o.classList.remove("selected"));
-      e.target.classList.add("selected");
-      const selectedColorInput = document.getElementById("selectedColor");
-      if (selectedColorInput) {
-        selectedColorInput.value = e.target.dataset.color;
-      }
-      return;
-    }
+        .querySelectorAll(".color-preset")
+        .forEach((b) => b.classList.remove("active"));
+      button.classList.add("active");
+    });
   });
 
-  // Form submission events
-  document.addEventListener("submit", async function (e) {
-    if (e.target && e.target.id === "loginForm") {
+  // Todo Modal Events
+  const closeTodoModal = document.getElementById("close-todo-modal");
+  if (closeTodoModal) {
+    closeTodoModal.addEventListener("click", () => closeModal("todo-modal"));
+  }
+
+  const cancelTodo = document.getElementById("cancel-todo");
+  if (cancelTodo) {
+    cancelTodo.addEventListener("click", () => closeModal("todo-modal"));
+  }
+
+  const todoForm = document.getElementById("todo-form");
+  if (todoForm) {
+    todoForm.addEventListener("submit", async (e) => {
       e.preventDefault();
-      hideAuthErrors();
-      showAuthLoading(true);
+      const formData = new FormData(e.target);
+      const todoData = {
+        title: formData.get("title"),
+        description: formData.get("description"),
+        sectionId: formData.get("sectionId"),
+        status: formData.get("status"),
+        assignedTo: formData.get("assignedTo") || null,
+      };
 
-      const email = document.getElementById("loginEmail").value;
-      const password = document.getElementById("loginPassword").value;
+      await saveTodo(todoData);
+      closeModal("todo-modal");
+    });
+  }
 
-      if (!email || !password) {
-        showAuthError("Please enter both email and password", "login");
-        showAuthLoading(false);
-        return;
+  // Team Modal Events
+  const teamBtn = document.getElementById("team-btn");
+  if (teamBtn) {
+    teamBtn.addEventListener("click", openTeamModal);
+  }
+
+  const closeTeamModal = document.getElementById("close-team-modal");
+  if (closeTeamModal) {
+    closeTeamModal.addEventListener("click", () => closeModal("team-modal"));
+  }
+
+  const addMemberBtn = document.getElementById("add-member-btn");
+  if (addMemberBtn) {
+    addMemberBtn.addEventListener("click", () => {
+      const modal = document.getElementById("add-member-modal");
+      if (modal) {
+        modal.classList.remove("hidden");
       }
+    });
+  }
 
-      try {
-        // Demo mode - accept any credentials
-        const user = await ServiceAPI.signIn(email, password);
-        handleAuthSuccess(user);
-      } catch (error) {
-        showAuthError(error.message, "login");
-        showAuthLoading(false);
-      }
-    }
-
-    if (e.target && e.target.id === "signupForm") {
-      e.preventDefault();
-      hideAuthErrors();
-      showAuthLoading(true);
-
-      const name = document.getElementById("signupName").value;
-      const email = document.getElementById("signupEmail").value;
-      const password = document.getElementById("signupPassword").value;
-
-      if (!name || !email || !password) {
-        showAuthError("Please fill in all fields", "signup");
-        showAuthLoading(false);
-        return;
-      }
-
-      if (password.length < 6) {
-        showAuthError("Password must be at least 6 characters", "signup");
-        showAuthLoading(false);
-        return;
-      }
-
-      try {
-        const user = await ServiceAPI.signUp(email, password, name);
-        handleAuthSuccess(user, name);
-      } catch (error) {
-        showAuthError(error.message, "signup");
-        showAuthLoading(false);
-      }
-    }
-  });
-
-  // Change events
-  document.addEventListener("change", async function (e) {
-    if (e.target && e.target.classList.contains("todo__status")) {
-      const todoId = e.target.dataset.todoId;
-      await updateTodo(todoId, "status", e.target.value);
-    }
-
-    if (e.target && e.target.classList.contains("todo__assigned")) {
-      const todoId = e.target.dataset.todoId;
-      await updateTodo(todoId, "assignedTo", e.target.value);
-    }
-
-    // Filter changes
-    if (
-      e.target &&
-      (e.target.id === "statusFilter" ||
-        e.target.id === "memberFilter" ||
-        e.target.id === "sortBy")
-    ) {
-      applyFilters();
-    }
-  });
-
-  // Input events
-  document.addEventListener("input", function (e) {
-    if (e.target && e.target.id === "searchInput") {
-      applyFilters();
-    }
-  });
-
-  // Blur events for todo text fields
-  document.addEventListener("blur", async function (e) {
-    if (e.target && e.target.classList.contains("todo__title")) {
-      const todoId = e.target.dataset.todoId;
-      await updateTodo(todoId, "title", e.target.value);
-    }
-
-    if (e.target && e.target.classList.contains("todo__description")) {
-      const todoId = e.target.dataset.todoId;
-      await updateTodo(todoId, "description", e.target.value);
-    }
-  });
-
-  // Keyboard events
-  document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape") {
-      hideAllModals();
-    }
-
-    if (
-      e.target &&
-      e.target.classList.contains("todo__title") &&
-      e.key === "Enter"
-    ) {
-      e.preventDefault();
-      e.target.blur();
-    }
-  });
-}
-
-// Application Initialization
-async function initApp() {
-  console.log("Initializing Firebase Team Todo App...");
-
-  if (isUsingMockData) {
-    console.log("Running in DEMO MODE - Firebase not configured");
-    console.log(
-      "To use real Firebase, update the firebaseConfig object with your project details"
+  const closeAddMemberModal = document.getElementById("close-add-member-modal");
+  if (closeAddMemberModal) {
+    closeAddMemberModal.addEventListener("click", () =>
+      closeModal("add-member-modal")
     );
   }
 
-  initTheme();
-  setupEventListeners();
-
-  // Always show auth screen first in demo mode
-  showAuthScreen();
-  showAuthLoading(false);
-
-  if (isUsingMockData) {
-    updateConnectionStatus(
-      "success",
-      "Demo Mode Ready - Use any email/password to sign in"
+  const cancelMember = document.getElementById("cancel-member");
+  if (cancelMember) {
+    cancelMember.addEventListener("click", () =>
+      closeModal("add-member-modal")
     );
-    setTimeout(() => updateConnectionStatus("hidden", ""), 5000);
   }
 
-  // Set default color selection in add section modal
-  setTimeout(() => {
-    const firstColorOption = document.querySelector(".color-option");
-    if (firstColorOption) {
-      firstColorOption.classList.add("selected");
-    }
-  }, 100);
+  const addMemberForm = document.getElementById("add-member-form");
+  if (addMemberForm) {
+    addMemberForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const memberData = {
+        name: formData.get("name"),
+        email: formData.get("email"),
+      };
 
-  console.log("App initialization complete");
-}
+      await saveTeamMember(memberData);
+      closeModal("add-member-modal");
+    });
+  }
 
-// Start the application
-document.addEventListener("DOMContentLoaded", initApp);
+  // Statistics Modal Events
+  const statisticsBtn = document.getElementById("statistics-btn");
+  if (statisticsBtn) {
+    statisticsBtn.addEventListener("click", openStatisticsModal);
+  }
+
+  const closeStatisticsModal = document.getElementById(
+    "close-statistics-modal"
+  );
+  if (closeStatisticsModal) {
+    closeStatisticsModal.addEventListener("click", () =>
+      closeModal("statistics-modal")
+    );
+  }
+
+  // Settings Modal Events
+  const settingsBtn = document.getElementById("settings-btn");
+  if (settingsBtn) {
+    settingsBtn.addEventListener("click", () => {
+      const firebaseStatus = document.getElementById("firebase-status");
+      if (firebaseStatus) {
+        firebaseStatus.textContent = isFirebaseConnected
+          ? "Connected to Firebase"
+          : "Not connected to Firebase";
+      }
+      const modal = document.getElementById("settings-modal");
+      if (modal) {
+        modal.classList.remove("hidden");
+      }
+    });
+  }
+
+  const closeSettingsModal = document.getElementById("close-settings-modal");
+  if (closeSettingsModal) {
+    closeSettingsModal.addEventListener("click", () =>
+      closeModal("settings-modal")
+    );
+  }
+
+  const testConnectionBtn = document.getElementById("test-connection-btn");
+  if (testConnectionBtn) {
+    testConnectionBtn.addEventListener("click", async () => {
+      const firebaseStatus = document.getElementById("firebase-status");
+      if (firebaseStatus) {
+        firebaseStatus.textContent = "Testing connection...";
+      }
+      await checkFirebaseConnection();
+      if (firebaseStatus) {
+        firebaseStatus.textContent = isFirebaseConnected
+          ? "Connected to Firebase"
+          : "Connection failed";
+      }
+    });
+  }
+
+  const exportDataBtn = document.getElementById("export-data-btn");
+  if (exportDataBtn) {
+    exportDataBtn.addEventListener("click", exportData);
+  }
+
+  // Theme toggle
+  const themeToggle = document.getElementById("theme-toggle");
+  if (themeToggle) {
+    themeToggle.addEventListener("click", () => {
+      const current = localStorage.getItem("theme") || "auto";
+      const themes = ["auto", "light", "dark"];
+      const nextIndex = (themes.indexOf(current) + 1) % themes.length;
+      applyTheme(themes[nextIndex]);
+
+      // Update radio button in settings
+      const themeRadio = document.querySelector(
+        `input[name="theme"][value="${themes[nextIndex]}"]`
+      );
+      if (themeRadio) {
+        themeRadio.checked = true;
+      }
+    });
+  }
+
+  // Theme radio buttons
+  document.querySelectorAll('input[name="theme"]').forEach((radio) => {
+    radio.addEventListener("change", (e) => {
+      if (e.target.checked) {
+        applyTheme(e.target.value);
+      }
+    });
+  });
+
+  // Filter Events
+  const statusFilter = document.getElementById("status-filter");
+  if (statusFilter) {
+    statusFilter.addEventListener("change", () => {
+      renderSections();
+    });
+  }
+
+  const assigneeFilter = document.getElementById("assignee-filter");
+  if (assigneeFilter) {
+    assigneeFilter.addEventListener("change", () => {
+      renderSections();
+    });
+  }
+
+  // Close modals when clicking outside
+  document.querySelectorAll(".modal").forEach((modal) => {
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) {
+        modal.classList.add("hidden");
+        editingSection = null;
+        editingTodo = null;
+      }
+    });
+  });
+
+  console.log("Event listeners setup completed");
+});
