@@ -1,13 +1,31 @@
-// Firebase Configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyCU_gj_SKAzLGu498JMxRbZZJiuYjvmkZs",
-  authDomain: "team-todo-manager.firebaseapp.com",
-  projectId: "team-todo-manager",
-  storageBucket: "team-todo-manager.firebasestorage.app",
-  messagingSenderId: "1092735143588",
-  appId: "1:1092735143588:web:f6ba1ea9acb6146e8ee031",
-  measurementId: "G-SXE5QMQPP8",
-};
+// Secure Firebase Configuration - loads from environment variables
+let firebaseConfig = {};
+
+// Load Firebase config from environment (injected during build)
+if (typeof window !== "undefined" && window.ENV) {
+  firebaseConfig = {
+    apiKey: window.ENV.FIREBASE_API_KEY,
+    authDomain: window.ENV.FIREBASE_AUTH_DOMAIN,
+    projectId: window.ENV.FIREBASE_PROJECT_ID,
+    storageBucket: window.ENV.FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: window.ENV.FIREBASE_MESSAGING_SENDER_ID,
+    appId: window.ENV.FIREBASE_APP_ID,
+    measurementId: window.ENV.FIREBASE_MEASUREMENT_ID,
+  };
+} else {
+  // Fallback for local development (you can use a separate config file)
+  console.warn("Environment variables not found, using fallback config");
+  firebaseConfig = {
+    // Add your local development config here (can be same as production for public projects)
+    apiKey: "AIzaSyCU_gj_SKAzLGu498JMxRbZZJiuYjvmkZs",
+    authDomain: "team-todo-manager.firebaseapp.com",
+    projectId: "team-todo-manager",
+    storageBucket: "team-todo-manager.firebasestorage.app",
+    messagingSenderId: "1092735143588",
+    appId: "1:1092735143588:web:f6ba1ea9acb6146e8ee031",
+    measurementId: "G-SXE5QMQPP8",
+  };
+}
 
 // Initialize Firebase
 let app, db;
@@ -23,66 +41,18 @@ try {
 let currentSections = [];
 let currentTodos = [];
 let currentTeamMembers = [];
+let currentComments = []; // NEW: Store comments
 let isFirebaseConnected = false;
 let editingSection = null;
 let editingTodo = null;
+let viewingTodo = null; // NEW: For viewing todo details with comments
 let statisticsChart = null;
 
 // Real-time listeners
 let sectionsUnsub = null;
 let todosUnsub = null;
 let membersUnsub = null;
-
-// Default Data - COMMENTED OUT TO START WITH EMPTY APP
-// const defaultSections = [
-//   { id: "finance", name: "Finance", color: "#4CAF50", isDefault: true },
-//   { id: "it", name: "IT", color: "#2196F3", isDefault: true },
-//   { id: "management", name: "Management", color: "#FF9800", isDefault: true },
-//   { id: "legal", name: "Legal Approvals", color: "#9C27B0", isDefault: true },
-//   { id: "designing", name: "Designing", color: "#E91E63", isDefault: true },
-// ];
-
-// const sampleTodos = [
-//   {
-//     id: "todo1",
-//     title: "Review Q4 Budget",
-//     description: "Analyze quarterly expenses and prepare budget report",
-//     sectionId: "finance",
-//     status: "todo",
-//     assignedTo: "john@example.com",
-//     createdAt: new Date("2024-01-15T10:00:00Z"),
-//     modifiedAt: new Date("2024-01-15T10:00:00Z"),
-//     createdBy: "system",
-//   },
-//   {
-//     id: "todo2",
-//     title: "Server Maintenance",
-//     description: "Schedule monthly server updates and security patches",
-//     sectionId: "it",
-//     status: "in-progress",
-//     assignedTo: "sarah@example.com",
-//     createdAt: new Date("2024-01-14T14:30:00Z"),
-//     modifiedAt: new Date("2024-01-16T09:15:00Z"),
-//     createdBy: "system",
-//   },
-//   {
-//     id: "todo3",
-//     title: "Team Performance Review",
-//     description: "Conduct quarterly performance evaluations",
-//     sectionId: "management",
-//     status: "completed",
-//     assignedTo: "mike@example.com",
-//     createdAt: new Date("2024-01-10T11:00:00Z"),
-//     modifiedAt: new Date("2024-01-18T16:45:00Z"),
-//     createdBy: "system",
-//   },
-// ];
-
-// const sampleTeamMembers = [
-//   { id: "1", name: "John Doe", email: "john@example.com", online: true },
-//   { id: "2", name: "Sarah Smith", email: "sarah@example.com", online: false },
-//   { id: "3", name: "Mike Johnson", email: "mike@example.com", online: true },
-// ];
+let commentsUnsub = null; // NEW: Comments listener
 
 // Utility Functions
 function generateId() {
@@ -122,10 +92,8 @@ async function checkFirebaseConnection() {
       throw new Error("Firestore not initialized");
     }
 
-    // Test connection by trying to read from Firestore
     await db.collection("sections").limit(1).get();
 
-    // Connection successful
     isFirebaseConnected = true;
     statusMessage.textContent = "🟢 Connected to Firebase successfully!";
     statusBar.className = "connection-status success";
@@ -133,7 +101,6 @@ async function checkFirebaseConnection() {
 
     console.log("Firebase connection successful");
 
-    // Auto-hide success message after 5 seconds
     setTimeout(() => {
       statusBar.classList.add("hidden");
     }, 5000);
@@ -142,7 +109,6 @@ async function checkFirebaseConnection() {
   } catch (error) {
     console.error("Firebase connection failed:", error);
 
-    // Connection failed
     isFirebaseConnected = false;
     statusMessage.textContent =
       "🔴 Unable to connect to Firebase - Using offline mode";
@@ -153,7 +119,7 @@ async function checkFirebaseConnection() {
   }
 }
 
-// Data Loading Functions (for offline mode only)
+// Data Loading Functions
 async function loadSections() {
   try {
     if (isFirebaseConnected && db) {
@@ -162,10 +128,8 @@ async function loadSections() {
       snapshot.forEach((doc) => {
         sections.push({ id: doc.id, ...doc.data() });
       });
-      // Return real data even if empty - no default initialization
       return sections;
     } else {
-      // Offline mode - start empty
       return [];
     }
   } catch (error) {
@@ -188,10 +152,8 @@ async function loadTodos() {
           modifiedAt: data.modifiedAt?.toDate() || new Date(),
         });
       });
-      // No sample todos initialization
       return todos;
     } else {
-      // Offline mode - start empty
       return [];
     }
   } catch (error) {
@@ -208,16 +170,78 @@ async function loadTeamMembers() {
       snapshot.forEach((doc) => {
         members.push({ id: doc.id, ...doc.data() });
       });
-      // No sample team members initialization
       return members;
     } else {
-      // Offline mode - start empty
       return [];
     }
   } catch (error) {
     console.error("Error loading team members:", error);
     return [];
   }
+}
+
+// NEW: Load comments for a specific todo
+async function loadComments(todoId) {
+  try {
+    if (isFirebaseConnected && db) {
+      const snapshot = await db
+        .collection("comments")
+        .where("todoId", "==", todoId)
+        .orderBy("createdAt", "desc")
+        .get();
+
+      const comments = [];
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        comments.push({
+          id: doc.id,
+          ...data,
+          createdAt: data.createdAt?.toDate() || new Date(),
+        });
+      });
+      return comments;
+    } else {
+      return [];
+    }
+  } catch (error) {
+    console.error("Error loading comments:", error);
+    return [];
+  }
+}
+
+// Comments Management
+async function saveComment(commentData) {
+  try {
+    if (isFirebaseConnected && db) {
+      const newComment = {
+        id: generateId(),
+        ...commentData,
+        createdAt: firebase.firestore.Timestamp.fromDate(new Date()),
+      };
+      await db.collection("comments").doc(newComment.id).set(newComment);
+
+      // Refresh comments for the current todo
+      if (viewingTodo) {
+        await refreshTodoComments(viewingTodo.id);
+      }
+    } else {
+      // Offline mode - add to local storage temporarily
+      const newComment = {
+        id: generateId(),
+        ...commentData,
+        createdAt: new Date(),
+      };
+      // You could store in localStorage here for offline support
+    }
+  } catch (error) {
+    console.error("Error saving comment:", error);
+    alert("Error saving comment. Please try again.");
+  }
+}
+
+async function refreshTodoComments(todoId) {
+  const comments = await loadComments(todoId);
+  renderTodoComments(comments);
 }
 
 // Section Management
@@ -234,7 +258,6 @@ async function saveSection(sectionData) {
         await db.collection("sections").doc(newSection.id).set(newSection);
       }
     } else {
-      // Offline mode - update local data
       if (editingSection) {
         const index = currentSections.findIndex(
           (s) => s.id === editingSection.id
@@ -509,6 +532,7 @@ function renderSections() {
   });
 }
 
+// MODIFIED: Updated todo rendering to include comments button
 function renderTodoItem(todo) {
   const assignedMember = currentTeamMembers.find(
     (member) => member.email === todo.assignedTo
@@ -528,7 +552,7 @@ function renderTodoItem(todo) {
   return `
     <div class="todo-item" style="--todo-status-color: ${
       statusColors[todo.status]
-    }" onclick="editTodo('${todo.id}')">
+    }">
       <div class="todo-header">
         <h4 class="todo-title">${todo.title}</h4>
         <span class="todo-status ${todo.status}">${todo.status.replace(
@@ -542,10 +566,14 @@ function renderTodoItem(todo) {
           : ""
       }
       <div class="todo-meta">
-        <div class="todo-assignee">
-          ${assigneeDisplay}
-        </div>
+        <div class="todo-assignee">${assigneeDisplay}</div>
         <div class="todo-actions">
+          <button class="todo-action" onclick="openTodoDetailsModal('${
+            todo.id
+          }')" title="View Details & Comments">💬</button>
+          <button class="todo-action" onclick="editTodo('${
+            todo.id
+          }')" title="Edit Todo">✏️</button>
           ${
             todo.status !== "completed"
               ? `<button class="todo-action" onclick="event.stopPropagation(); updateTodoStatus('${todo.id}', 'completed')" title="Mark Complete">✓</button>`
@@ -558,6 +586,121 @@ function renderTodoItem(todo) {
       </div>
     </div>
   `;
+}
+
+// NEW: Open todo details modal with comments
+async function openTodoDetailsModal(todoId) {
+  viewingTodo = currentTodos.find((t) => t.id === todoId);
+  if (!viewingTodo) return;
+
+  const modal = document.getElementById("todo-details-modal");
+  if (!modal) return;
+
+  // Populate todo details
+  document.getElementById("details-todo-title").textContent = viewingTodo.title;
+  document.getElementById("details-todo-description").textContent =
+    viewingTodo.description || "No description";
+  document.getElementById("details-todo-status").textContent =
+    viewingTodo.status.replace("-", " ");
+  document.getElementById(
+    "details-todo-status"
+  ).className = `todo-status ${viewingTodo.status}`;
+
+  const assignedMember = currentTeamMembers.find(
+    (m) => m.email === viewingTodo.assignedTo
+  );
+  document.getElementById("details-todo-assignee").textContent = assignedMember
+    ? assignedMember.name
+    : "Unassigned";
+
+  // Load and render comments
+  await refreshTodoComments(todoId);
+
+  modal.classList.remove("hidden");
+}
+
+// NEW: Render comments in the todo details modal
+function renderTodoComments(comments) {
+  const container = document.getElementById("todo-comments-list");
+  if (!container) return;
+
+  container.innerHTML = "";
+
+  if (comments.length === 0) {
+    container.innerHTML =
+      '<div class="empty-state"><p>No comments yet</p></div>';
+    return;
+  }
+
+  comments.forEach((comment) => {
+    const commentElement = document.createElement("div");
+    commentElement.className = "comment-item";
+
+    const author = currentTeamMembers.find(
+      (m) => m.email === comment.authorEmail
+    ) || { name: comment.authorEmail, email: comment.authorEmail };
+
+    commentElement.innerHTML = `
+      <div class="comment-header">
+        <div class="comment-author">
+          <div class="comment-avatar">${getInitials(author.name)}</div>
+          <div class="comment-info">
+            <h5>${author.name}</h5>
+            <span class="comment-date">${formatDate(comment.createdAt)}</span>
+          </div>
+        </div>
+        ${
+          comment.statusChange
+            ? `<span class="status-change">Status: ${comment.statusChange}</span>`
+            : ""
+        }
+      </div>
+      <div class="comment-body">
+        <p>${comment.message}</p>
+      </div>
+    `;
+    container.appendChild(commentElement);
+  });
+}
+
+// NEW: Add comment with optional status change
+async function addTodoComment() {
+  const message = document.getElementById("comment-message").value.trim();
+  const statusChange = document.getElementById("comment-status-change").value;
+
+  if (!message && !statusChange) {
+    alert("Please enter a comment or select a status change.");
+    return;
+  }
+
+  if (!viewingTodo) return;
+
+  // For now, we'll use a default author email - in a real app you'd get this from authentication
+  const authorEmail = "current@user.com"; // This should come from your auth system
+
+  const commentData = {
+    todoId: viewingTodo.id,
+    message: message || "",
+    authorEmail: authorEmail,
+    statusChange: statusChange || null,
+  };
+
+  await saveComment(commentData);
+
+  // Update todo status if changed
+  if (statusChange && statusChange !== viewingTodo.status) {
+    await updateTodoStatus(viewingTodo.id, statusChange);
+    viewingTodo.status = statusChange; // Update local state
+    document.getElementById("details-todo-status").textContent =
+      statusChange.replace("-", " ");
+    document.getElementById(
+      "details-todo-status"
+    ).className = `todo-status ${statusChange}`;
+  }
+
+  // Clear form
+  document.getElementById("comment-message").value = "";
+  document.getElementById("comment-status-change").value = "";
 }
 
 function renderTeamMembers() {
@@ -852,6 +995,8 @@ window.deleteTodo = deleteTodo;
 window.updateTodoStatus = updateTodoStatus;
 window.deleteTeamMember = deleteTeamMember;
 window.openTodoModal = openTodoModal;
+window.openTodoDetailsModal = openTodoDetailsModal;
+window.addTodoComment = addTodoComment;
 
 // Theme Management
 function initializeTheme() {
@@ -885,18 +1030,16 @@ function applyTheme(theme) {
   localStorage.setItem("theme", theme);
 }
 
-// App Initialization with Real-Time Listeners
+// App Initialization with Real-Time Listeners (UPDATED)
 async function initializeApp() {
   try {
     console.log("Initializing Team Todo Manager...");
 
-    // Show loading state
     const container = document.getElementById("sections-container");
     if (container) {
       container.innerHTML = '<div class="loading">Loading app...</div>';
     }
 
-    // Check Firebase connection
     await checkFirebaseConnection();
 
     if (isFirebaseConnected && db) {
@@ -945,7 +1088,7 @@ async function initializeApp() {
         renderTeamMembers();
       });
     } else {
-      // Offline mode - load empty data
+      // Offline mode
       currentSections = await loadSections();
       currentTodos = await loadTodos();
       currentTeamMembers = await loadTeamMembers();
@@ -964,7 +1107,6 @@ async function initializeApp() {
   } catch (error) {
     console.error("Error initializing app:", error);
 
-    // Fallback to completely empty state
     currentSections = [];
     currentTodos = [];
     currentTeamMembers = [];

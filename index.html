@@ -5,9 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Team Todo Manager</title>
     <link rel="stylesheet" href="style.css" />
-    <!-- Firebase compat SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+    <!-- Environment Configuration (injected during build) -->
+    <script src="env.js"></script>
+
+    <!-- Firebase CDN -->
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+
+    <!-- Chart.js for statistics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   </head>
   <body>
     <!-- Connection Status Bar -->
@@ -16,35 +23,39 @@
     </div>
 
     <!-- Main App Container -->
-    <div id="app" class="app">
+    <div class="app">
       <!-- Header -->
       <header class="header">
         <div class="header-content">
           <h1 class="app-title">Team Todo Manager</h1>
           <div class="header-actions">
             <button
-              id="statistics-btn"
+              id="theme-toggle"
               class="btn btn--outline btn--sm"
-              title="Statistics"
+              title="Toggle Theme"
             >
-              <span>📊</span>
+              <span id="theme-icon">🌙</span>
             </button>
-            <button id="team-btn" class="btn btn--outline btn--sm" title="Team">
-              <span>👥</span>
+            <button
+              id="team-btn"
+              class="btn btn--secondary btn--sm"
+              title="Manage Team"
+            >
+              👥 Team
+            </button>
+            <button
+              id="statistics-btn"
+              class="btn btn--secondary btn--sm"
+              title="View Statistics"
+            >
+              📊 Stats
             </button>
             <button
               id="settings-btn"
               class="btn btn--outline btn--sm"
               title="Settings"
             >
-              <span>⚙️</span>
-            </button>
-            <button
-              id="theme-toggle"
-              class="btn btn--outline btn--sm"
-              title="Toggle Theme"
-            >
-              <span id="theme-icon">🌙</span>
+              ⚙️
             </button>
           </div>
         </div>
@@ -55,9 +66,6 @@
         <div class="container">
           <!-- Section Controls -->
           <div class="section-controls">
-            <button id="add-section-btn" class="btn btn--primary">
-              + Add Section
-            </button>
             <div class="section-filters">
               <select id="status-filter" class="form-control">
                 <option value="">All Status</option>
@@ -69,17 +77,20 @@
                 <option value="">All Assignees</option>
               </select>
             </div>
+            <button id="add-section-btn" class="btn btn--primary">
+              + Add Section
+            </button>
           </div>
 
           <!-- Sections Container -->
           <div id="sections-container" class="sections-container">
-            <!-- Dynamic sections will be inserted here -->
+            <!-- Sections will be dynamically rendered here -->
           </div>
         </div>
       </main>
     </div>
 
-    <!-- Add/Edit Section Modal -->
+    <!-- Section Modal -->
     <div id="section-modal" class="modal hidden">
       <div class="modal-content">
         <div class="modal-header">
@@ -99,7 +110,9 @@
               />
             </div>
             <div class="form-group">
-              <label for="section-color" class="form-label">Color</label>
+              <label for="section-color" class="form-label"
+                >Section Color</label
+              >
               <div class="color-picker">
                 <input
                   type="color"
@@ -109,42 +122,36 @@
                   value="#4CAF50"
                 />
                 <div class="color-presets">
-                  <button
-                    type="button"
+                  <div
                     class="color-preset"
+                    style="background-color: #4caf50"
                     data-color="#4CAF50"
-                    style="background: #4caf50"
-                  ></button>
-                  <button
-                    type="button"
+                  ></div>
+                  <div
                     class="color-preset"
+                    style="background-color: #2196f3"
                     data-color="#2196F3"
-                    style="background: #2196f3"
-                  ></button>
-                  <button
-                    type="button"
+                  ></div>
+                  <div
                     class="color-preset"
+                    style="background-color: #ff9800"
                     data-color="#FF9800"
-                    style="background: #ff9800"
-                  ></button>
-                  <button
-                    type="button"
+                  ></div>
+                  <div
                     class="color-preset"
+                    style="background-color: #9c27b0"
                     data-color="#9C27B0"
-                    style="background: #9c27b0"
-                  ></button>
-                  <button
-                    type="button"
+                  ></div>
+                  <div
                     class="color-preset"
+                    style="background-color: #e91e63"
                     data-color="#E91E63"
-                    style="background: #e91e63"
-                  ></button>
-                  <button
-                    type="button"
+                  ></div>
+                  <div
                     class="color-preset"
+                    style="background-color: #f44336"
                     data-color="#F44336"
-                    style="background: #f44336"
-                  ></button>
+                  ></div>
                 </div>
               </div>
             </div>
@@ -165,7 +172,7 @@
       </div>
     </div>
 
-    <!-- Add/Edit Todo Modal -->
+    <!-- Todo Modal -->
     <div id="todo-modal" class="modal hidden">
       <div class="modal-content">
         <div class="modal-header">
@@ -202,28 +209,20 @@
                 name="sectionId"
                 class="form-control"
                 required
-              >
-                <!-- Dynamic options will be inserted here -->
-              </select>
+              ></select>
             </div>
             <div class="form-group">
               <label for="todo-status" class="form-label">Status</label>
-              <select
-                id="todo-status"
-                name="status"
-                class="form-control"
-                required
-              >
+              <select id="todo-status" name="status" class="form-control">
                 <option value="todo">To Do</option>
                 <option value="in-progress">In Progress</option>
                 <option value="completed">Completed</option>
               </select>
             </div>
             <div class="form-group">
-              <label for="todo-assignee" class="form-label">Assigned To</label>
+              <label for="todo-assignee" class="form-label">Assign To</label>
               <select id="todo-assignee" name="assignedTo" class="form-control">
                 <option value="">Unassigned</option>
-                <!-- Dynamic options will be inserted here -->
               </select>
             </div>
             <div class="modal-actions">
@@ -239,27 +238,95 @@
       </div>
     </div>
 
-    <!-- Team Modal -->
-    <div id="team-modal" class="modal hidden">
-      <div class="modal-content">
+    <!-- Todo Details Modal with Comments -->
+    <div id="todo-details-modal" class="modal hidden">
+      <div class="modal-content modal-content--large">
         <div class="modal-header">
-          <h3>Team Members</h3>
-          <button id="close-team-modal" class="modal-close">&times;</button>
+          <h3>Todo Details</h3>
+          <button
+            onclick="closeModal('todo-details-modal')"
+            class="modal-close"
+          >
+            &times;
+          </button>
         </div>
         <div class="modal-body">
-          <div class="team-actions">
-            <button id="add-member-btn" class="btn btn--primary btn--sm">
-              + Add Member
-            </button>
+          <!-- Todo Information -->
+          <div class="todo-details-info">
+            <h4 id="details-todo-title">Todo Title</h4>
+            <p id="details-todo-description">Todo Description</p>
+            <div class="todo-details-meta">
+              <span
+                >Status:
+                <span id="details-todo-status" class="todo-status"
+                  >todo</span
+                ></span
+              >
+              <span
+                >Assigned to:
+                <strong id="details-todo-assignee">Unassigned</strong></span
+              >
+            </div>
           </div>
-          <div id="team-list" class="team-list">
-            <!-- Dynamic team members will be inserted here -->
+
+          <!-- Comments Section -->
+          <div class="comments-section">
+            <h5>Comments & Updates</h5>
+
+            <!-- Add Comment Form -->
+            <div class="add-comment-form">
+              <textarea
+                id="comment-message"
+                class="form-control"
+                placeholder="Add a comment..."
+                rows="3"
+              ></textarea>
+              <div class="comment-actions">
+                <select id="comment-status-change" class="form-control">
+                  <option value="">No status change</option>
+                  <option value="todo">Change to: To Do</option>
+                  <option value="in-progress">Change to: In Progress</option>
+                  <option value="completed">Change to: Completed</option>
+                </select>
+                <button
+                  onclick="addTodoComment()"
+                  class="btn btn--primary btn--sm"
+                >
+                  Add Comment
+                </button>
+              </div>
+            </div>
+
+            <!-- Comments List -->
+            <div id="todo-comments-list" class="comments-list">
+              <!-- Comments will be rendered here -->
+            </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Add Member Modal -->
+    <!-- Team Modal -->
+    <div id="team-modal" class="modal hidden">
+      <div class="modal-content modal-content--large">
+        <div class="modal-header">
+          <h3>Team Management</h3>
+          <button id="close-team-modal" class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="team-actions">
+            <button id="add-member-btn" class="btn btn--primary btn--sm">
+              + Add Team Member
+            </button>
+          </div>
+          <div id="team-list" class="team-list">
+            <!-- Team members will be rendered here -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add Team Member Modal -->
     <div id="add-member-modal" class="modal hidden">
       <div class="modal-content">
         <div class="modal-header">
@@ -305,7 +372,7 @@
     <div id="statistics-modal" class="modal hidden">
       <div class="modal-content modal-content--large">
         <div class="modal-header">
-          <h3>Statistics</h3>
+          <h3>Project Statistics</h3>
           <button id="close-statistics-modal" class="modal-close">
             &times;
           </button>
@@ -329,11 +396,8 @@
               <p id="todo-todos">0</p>
             </div>
           </div>
-          <div
-            class="chart-container"
-            style="position: relative; height: 400px"
-          >
-            <canvas id="stats-chart"></canvas>
+          <div class="chart-container">
+            <canvas id="stats-chart" width="400" height="200"></canvas>
           </div>
         </div>
       </div>
@@ -351,21 +415,18 @@
             <h4>Theme</h4>
             <div class="theme-options">
               <label class="radio-label">
-                <input type="radio" name="theme" value="light" />
-                <span>Light</span>
+                <input type="radio" name="theme" value="auto" /> Auto
               </label>
               <label class="radio-label">
-                <input type="radio" name="theme" value="dark" />
-                <span>Dark</span>
+                <input type="radio" name="theme" value="light" /> Light
               </label>
               <label class="radio-label">
-                <input type="radio" name="theme" value="auto" checked />
-                <span>Auto</span>
+                <input type="radio" name="theme" value="dark" /> Dark
               </label>
             </div>
           </div>
           <div class="setting-group">
-            <h4>Firebase Connection</h4>
+            <h4>Database Connection</h4>
             <div class="connection-info">
               <p id="firebase-status">Checking connection...</p>
               <button id="test-connection-btn" class="btn btn--outline btn--sm">
@@ -374,18 +435,16 @@
             </div>
           </div>
           <div class="setting-group">
-            <h4>Data Export</h4>
+            <h4>Data Management</h4>
             <button id="export-data-btn" class="btn btn--secondary btn--sm">
-              Export All Data
+              Export Data
             </button>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- App Script -->
+    <!-- Load the secure JavaScript (renamed from secure-app.js to app.js during deployment) -->
     <script src="app.js"></script>
   </body>
 </html>

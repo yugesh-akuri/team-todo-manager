@@ -1,0 +1,60 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+
+      - name: Create environment configuration
+        run: |
+          mkdir -p config
+          cat > config/env.js << EOF
+          // Auto-generated environment configuration
+          window.ENV = {
+            FIREBASE_API_KEY: "${{ secrets.FIREBASE_API_KEY }}",
+            FIREBASE_AUTH_DOMAIN: "${{ secrets.FIREBASE_AUTH_DOMAIN }}",
+            FIREBASE_PROJECT_ID: "${{ secrets.FIREBASE_PROJECT_ID }}",
+            FIREBASE_STORAGE_BUCKET: "${{ secrets.FIREBASE_STORAGE_BUCKET }}",
+            FIREBASE_MESSAGING_SENDER_ID: "${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}",
+            FIREBASE_APP_ID: "${{ secrets.FIREBASE_APP_ID }}",
+            FIREBASE_MEASUREMENT_ID: "${{ secrets.FIREBASE_MEASUREMENT_ID }}"
+          };
+          EOF
+
+      - name: Build and prepare files
+        run: |
+          # Copy files to deployment directory
+          mkdir -p deploy
+          cp index.html deploy/
+          cp style.css deploy/
+          cp secure-app.js deploy/app.js
+          cp config/env.js deploy/
+
+          # Update index.html to include env.js
+          sed -i 's|</head>|<script src="env.js"></script></head>|g' deploy/index.html
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        if: github.ref == 'refs/heads/main'
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./deploy
+
+      - name: Clean up sensitive files
+        run: |
+          rm -rf config/
+          rm -f deploy/env.js
