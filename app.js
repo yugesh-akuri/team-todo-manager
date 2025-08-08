@@ -28,56 +28,61 @@ let editingSection = null;
 let editingTodo = null;
 let statisticsChart = null;
 
-// Default Data
-const defaultSections = [
-  { id: "finance", name: "Finance", color: "#4CAF50", isDefault: true },
-  { id: "it", name: "IT", color: "#2196F3", isDefault: true },
-  { id: "management", name: "Management", color: "#FF9800", isDefault: true },
-  { id: "legal", name: "Legal Approvals", color: "#9C27B0", isDefault: true },
-  { id: "designing", name: "Designing", color: "#E91E63", isDefault: true },
-];
+// Real-time listeners
+let sectionsUnsub = null;
+let todosUnsub = null;
+let membersUnsub = null;
 
-const sampleTodos = [
-  {
-    id: "todo1",
-    title: "Review Q4 Budget",
-    description: "Analyze quarterly expenses and prepare budget report",
-    sectionId: "finance",
-    status: "todo",
-    assignedTo: "john@example.com",
-    createdAt: new Date("2024-01-15T10:00:00Z"),
-    modifiedAt: new Date("2024-01-15T10:00:00Z"),
-    createdBy: "system",
-  },
-  {
-    id: "todo2",
-    title: "Server Maintenance",
-    description: "Schedule monthly server updates and security patches",
-    sectionId: "it",
-    status: "in-progress",
-    assignedTo: "sarah@example.com",
-    createdAt: new Date("2024-01-14T14:30:00Z"),
-    modifiedAt: new Date("2024-01-16T09:15:00Z"),
-    createdBy: "system",
-  },
-  {
-    id: "todo3",
-    title: "Team Performance Review",
-    description: "Conduct quarterly performance evaluations",
-    sectionId: "management",
-    status: "completed",
-    assignedTo: "mike@example.com",
-    createdAt: new Date("2024-01-10T11:00:00Z"),
-    modifiedAt: new Date("2024-01-18T16:45:00Z"),
-    createdBy: "system",
-  },
-];
+// Default Data - COMMENTED OUT TO START WITH EMPTY APP
+// const defaultSections = [
+//   { id: "finance", name: "Finance", color: "#4CAF50", isDefault: true },
+//   { id: "it", name: "IT", color: "#2196F3", isDefault: true },
+//   { id: "management", name: "Management", color: "#FF9800", isDefault: true },
+//   { id: "legal", name: "Legal Approvals", color: "#9C27B0", isDefault: true },
+//   { id: "designing", name: "Designing", color: "#E91E63", isDefault: true },
+// ];
 
-const sampleTeamMembers = [
-  { id: "1", name: "John Doe", email: "john@example.com", online: true },
-  { id: "2", name: "Sarah Smith", email: "sarah@example.com", online: false },
-  { id: "3", name: "Mike Johnson", email: "mike@example.com", online: true },
-];
+// const sampleTodos = [
+//   {
+//     id: "todo1",
+//     title: "Review Q4 Budget",
+//     description: "Analyze quarterly expenses and prepare budget report",
+//     sectionId: "finance",
+//     status: "todo",
+//     assignedTo: "john@example.com",
+//     createdAt: new Date("2024-01-15T10:00:00Z"),
+//     modifiedAt: new Date("2024-01-15T10:00:00Z"),
+//     createdBy: "system",
+//   },
+//   {
+//     id: "todo2",
+//     title: "Server Maintenance",
+//     description: "Schedule monthly server updates and security patches",
+//     sectionId: "it",
+//     status: "in-progress",
+//     assignedTo: "sarah@example.com",
+//     createdAt: new Date("2024-01-14T14:30:00Z"),
+//     modifiedAt: new Date("2024-01-16T09:15:00Z"),
+//     createdBy: "system",
+//   },
+//   {
+//     id: "todo3",
+//     title: "Team Performance Review",
+//     description: "Conduct quarterly performance evaluations",
+//     sectionId: "management",
+//     status: "completed",
+//     assignedTo: "mike@example.com",
+//     createdAt: new Date("2024-01-10T11:00:00Z"),
+//     modifiedAt: new Date("2024-01-18T16:45:00Z"),
+//     createdBy: "system",
+//   },
+// ];
+
+// const sampleTeamMembers = [
+//   { id: "1", name: "John Doe", email: "john@example.com", online: true },
+//   { id: "2", name: "Sarah Smith", email: "sarah@example.com", online: false },
+//   { id: "3", name: "Mike Johnson", email: "mike@example.com", online: true },
+// ];
 
 // Utility Functions
 function generateId() {
@@ -148,7 +153,7 @@ async function checkFirebaseConnection() {
   }
 }
 
-// Data Loading Functions
+// Data Loading Functions (for offline mode only)
 async function loadSections() {
   try {
     if (isFirebaseConnected && db) {
@@ -157,20 +162,15 @@ async function loadSections() {
       snapshot.forEach((doc) => {
         sections.push({ id: doc.id, ...doc.data() });
       });
-
-      if (sections.length === 0) {
-        // Initialize with default sections
-        await initializeDefaultSections();
-        return [...defaultSections];
-      }
-
+      // Return real data even if empty - no default initialization
       return sections;
     } else {
-      return [...defaultSections];
+      // Offline mode - start empty
+      return [];
     }
   } catch (error) {
     console.error("Error loading sections:", error);
-    return [...defaultSections];
+    return [];
   }
 }
 
@@ -188,20 +188,15 @@ async function loadTodos() {
           modifiedAt: data.modifiedAt?.toDate() || new Date(),
         });
       });
-
-      if (todos.length === 0) {
-        // Initialize with sample todos
-        await initializeSampleTodos();
-        return [...sampleTodos];
-      }
-
+      // No sample todos initialization
       return todos;
     } else {
-      return [...sampleTodos];
+      // Offline mode - start empty
+      return [];
     }
   } catch (error) {
     console.error("Error loading todos:", error);
-    return [...sampleTodos];
+    return [];
   }
 }
 
@@ -213,73 +208,15 @@ async function loadTeamMembers() {
       snapshot.forEach((doc) => {
         members.push({ id: doc.id, ...doc.data() });
       });
-
-      if (members.length === 0) {
-        // Initialize with sample team members
-        await initializeSampleTeamMembers();
-        return [...sampleTeamMembers];
-      }
-
+      // No sample team members initialization
       return members;
     } else {
-      return [...sampleTeamMembers];
+      // Offline mode - start empty
+      return [];
     }
   } catch (error) {
     console.error("Error loading team members:", error);
-    return [...sampleTeamMembers];
-  }
-}
-
-// Initialize Default Data
-async function initializeDefaultSections() {
-  if (!isFirebaseConnected || !db) return;
-
-  try {
-    const batch = db.batch();
-    defaultSections.forEach((section) => {
-      const ref = db.collection("sections").doc(section.id);
-      batch.set(ref, section);
-    });
-    await batch.commit();
-    console.log("Default sections initialized");
-  } catch (error) {
-    console.error("Error initializing default sections:", error);
-  }
-}
-
-async function initializeSampleTodos() {
-  if (!isFirebaseConnected || !db) return;
-
-  try {
-    const batch = db.batch();
-    sampleTodos.forEach((todo) => {
-      const ref = db.collection("todos").doc(todo.id);
-      batch.set(ref, {
-        ...todo,
-        createdAt: firebase.firestore.Timestamp.fromDate(todo.createdAt),
-        modifiedAt: firebase.firestore.Timestamp.fromDate(todo.modifiedAt),
-      });
-    });
-    await batch.commit();
-    console.log("Sample todos initialized");
-  } catch (error) {
-    console.error("Error initializing sample todos:", error);
-  }
-}
-
-async function initializeSampleTeamMembers() {
-  if (!isFirebaseConnected || !db) return;
-
-  try {
-    const batch = db.batch();
-    sampleTeamMembers.forEach((member) => {
-      const ref = db.collection("users").doc(member.id);
-      batch.set(ref, member);
-    });
-    await batch.commit();
-    console.log("Sample team members initialized");
-  } catch (error) {
-    console.error("Error initializing sample team members:", error);
+    return [];
   }
 }
 
@@ -505,33 +442,6 @@ async function deleteTeamMember(memberId) {
   }
 }
 
-// Data Refresh Functions
-async function refreshSections() {
-  currentSections = await loadSections();
-  renderSections();
-  updateSectionSelects();
-  updateFilters();
-}
-
-async function refreshTodos() {
-  currentTodos = await loadTodos();
-  renderSections();
-  updateStatistics();
-}
-
-async function refreshTeamMembers() {
-  currentTeamMembers = await loadTeamMembers();
-  updateAssigneeSelects();
-  updateFilters();
-  renderTeamMembers();
-}
-
-async function refreshData() {
-  console.log("Refreshing all data...");
-  await Promise.all([refreshSections(), refreshTodos(), refreshTeamMembers()]);
-  console.log("Data refresh completed");
-}
-
 // Rendering Functions
 function renderSections() {
   const container = document.getElementById("sections-container");
@@ -544,7 +454,8 @@ function renderSections() {
   container.innerHTML = "";
 
   if (currentSections.length === 0) {
-    container.innerHTML = '<div class="loading">Loading sections...</div>';
+    container.innerHTML =
+      '<div class="empty-state"><p>No sections yet. Click "Add Section" to get started!</p></div>';
     return;
   }
 
@@ -602,6 +513,12 @@ function renderTodoItem(todo) {
   const assignedMember = currentTeamMembers.find(
     (member) => member.email === todo.assignedTo
   );
+  const assigneeDisplay = assignedMember
+    ? `👤 ${assignedMember.name}`
+    : todo.assignedTo
+    ? `👤 ${todo.assignedTo}`
+    : "👤 Unassigned";
+
   const statusColors = {
     todo: "#f44336",
     "in-progress": "#ff9800",
@@ -626,7 +543,7 @@ function renderTodoItem(todo) {
       }
       <div class="todo-meta">
         <div class="todo-assignee">
-          ${assignedMember ? `👤 ${assignedMember.name}` : "👤 Unassigned"}
+          ${assigneeDisplay}
         </div>
         <div class="todo-actions">
           ${
@@ -968,7 +885,7 @@ function applyTheme(theme) {
   localStorage.setItem("theme", theme);
 }
 
-// App Initialization
+// App Initialization with Real-Time Listeners
 async function initializeApp() {
   try {
     console.log("Initializing Team Todo Manager...");
@@ -982,23 +899,75 @@ async function initializeApp() {
     // Check Firebase connection
     await checkFirebaseConnection();
 
-    // Load data (works both online and offline)
-    await refreshData();
+    if (isFirebaseConnected && db) {
+      // Real-time sections listener
+      if (sectionsUnsub) sectionsUnsub();
+      sectionsUnsub = db.collection("sections").onSnapshot((snapshot) => {
+        currentSections = [];
+        snapshot.forEach((doc) => {
+          currentSections.push({ id: doc.id, ...doc.data() });
+        });
+        renderSections();
+        updateSectionSelects();
+        updateFilters();
+      });
 
-    // Update UI
+      // Real-time todos listener
+      if (todosUnsub) todosUnsub();
+      todosUnsub = db.collection("todos").onSnapshot((snapshot) => {
+        currentTodos = [];
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          currentTodos.push({
+            id: doc.id,
+            ...data,
+            createdAt: data.createdAt?.toDate
+              ? data.createdAt.toDate()
+              : data.createdAt,
+            modifiedAt: data.modifiedAt?.toDate
+              ? data.modifiedAt.toDate()
+              : data.modifiedAt,
+          });
+        });
+        renderSections();
+        updateStatistics();
+      });
+
+      // Real-time team members listener
+      if (membersUnsub) membersUnsub();
+      membersUnsub = db.collection("users").onSnapshot((snapshot) => {
+        currentTeamMembers = [];
+        snapshot.forEach((doc) => {
+          currentTeamMembers.push({ id: doc.id, ...doc.data() });
+        });
+        updateAssigneeSelects();
+        updateFilters();
+        renderTeamMembers();
+      });
+    } else {
+      // Offline mode - load empty data
+      currentSections = await loadSections();
+      currentTodos = await loadTodos();
+      currentTeamMembers = await loadTeamMembers();
+
+      renderSections();
+      updateSectionSelects();
+      updateAssigneeSelects();
+      updateFilters();
+      renderTeamMembers();
+    }
+
     updateStatistics();
-
-    // Initialize theme
     initializeTheme();
 
     console.log("App initialized successfully");
   } catch (error) {
     console.error("Error initializing app:", error);
 
-    // Fallback to offline mode if initialization fails
-    currentSections = [...defaultSections];
-    currentTodos = [...sampleTodos];
-    currentTeamMembers = [...sampleTeamMembers];
+    // Fallback to completely empty state
+    currentSections = [];
+    currentTodos = [];
+    currentTeamMembers = [];
     renderSections();
     updateStatistics();
     updateFilters();
